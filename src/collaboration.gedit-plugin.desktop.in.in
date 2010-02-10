@@ -1,0 +1,9 @@
+[Gedit Plugin]
+Module=collaboration
+IAge=2
+_Name=Collaboration
+_Description=Collaboration plugin
+Authors=Jesse van den Kieboom <jessevdk@gnome.org>
+Copyright=Copyright (C) 2010  Jesse van den Kieboom
+Website=http://www.gedit.org
+Version=@VERSION@
