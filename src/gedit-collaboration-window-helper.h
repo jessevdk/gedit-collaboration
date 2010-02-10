@@ -30,7 +30,8 @@ struct _GeditCollaborationWindowHelperClass {
 
 GType gedit_collaboration_window_helper_get_type (void) G_GNUC_CONST;
 
-GeditCollaborationWindowHelper *gedit_collaboration_window_helper_new (GeditWindow *window);
+GeditCollaborationWindowHelper *gedit_collaboration_window_helper_new (GeditWindow *window,
+                                                                       const gchar *data_dir);
 GType gedit_collaboration_window_helper_register_type (GTypeModule *module);
 
 G_END_DECLS

@@ -18,8 +18,11 @@ libcollaboration_la_LDFLAGS = $(PLUGIN_LIBTOOL_FLAGS)
 libcollaboration_la_LIBADD = $(GEDIT_LIBS)
 
 # Plugin Info
-
 plugin_in_files = collaboration.gedit-plugin.desktop.in
+
+# UI files (if you use ui for your plugin, list those files here)
+uidir = $(GEDIT_PLUGINS_DATA_DIR)/collaboration
+ui_DATA = gedit-collaboration-window-helper-ui.xml
 
 %.gedit-plugin: %.gedit-plugin.desktop.in $(INTLTOOL_MERGE) $(wildcard $(top_srcdir)/po/*po) ; $(INTLTOOL_MERGE) $(top_srcdir)/po $< $@ -d -u -c $(top_builddir)/po/.intltool-merge-cache
 

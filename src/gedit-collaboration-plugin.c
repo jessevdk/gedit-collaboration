@@ -47,7 +47,8 @@ plugin_activate_impl (GeditPlugin *plugin,
 {
 	GeditCollaborationWindowHelper *helper;
 
-	helper = gedit_collaboration_window_helper_new (window);
+	helper = gedit_collaboration_window_helper_new (window,
+	                                                gedit_plugin_get_data_dir (plugin));
 	g_object_set_data_full (G_OBJECT (window),
 	                        WINDOW_DATA_KEY,
 	                        (GDestroyNotify)g_object_unref,
