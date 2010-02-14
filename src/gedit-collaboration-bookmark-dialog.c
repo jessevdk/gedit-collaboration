@@ -223,7 +223,7 @@ set_bookmark (GeditCollaborationBookmarkDialog *dialog,
 	const gchar *text;
 	GeditCollaborationUser *user;
 
-	dialog->priv->bookmark = bookmark;
+	dialog->priv->bookmark = g_object_ref (bookmark);
 
 	text = gedit_collaboration_bookmark_get_name (bookmark);
 	gtk_entry_set_text (dialog->priv->entry_name, text ? text : "");
