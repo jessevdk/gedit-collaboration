@@ -407,7 +407,7 @@ handle_error (Subscription *subscription,
 
 		message_area = gedit_collaboration_document_message_new_error (error);
 		gtk_widget_show (message_area);
-		gedit_tab_set_message_area (subscription->tab, message_area);
+		gedit_tab_set_info_bar (subscription->tab, message_area);
 
 		g_signal_connect (message_area,
 		                  "response",
@@ -629,7 +629,7 @@ on_synchronization_complete (InfSession       *session,
 	subscription->signal_handlers[SYNCHRONIZATION_PROGRESS] = 0;
 
 #ifndef GEDIT_STABLE
-	gedit_tab_set_message_area (subscription->tab, NULL);
+	gedit_tab_set_info_bar (subscription->tab, NULL);
 
 	/* Now guess with the content too */
 	content_type = guess_content_type (subscription);
@@ -671,8 +671,8 @@ on_synchronization_progress (InfSession       *session,
 			                                                   _("Please wait while the shared document is being synchronized"));
 
 		gtk_widget_show (subscription->progress_area);
-		gedit_tab_set_message_area (subscription->tab,
-		                            subscription->progress_area);
+		gedit_tab_set_info_bar (subscription->tab,
+		                        subscription->progress_area);
 	}
 #endif
 }
