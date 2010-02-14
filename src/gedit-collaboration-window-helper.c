@@ -666,6 +666,22 @@ add_window_menu (GeditCollaborationWindowHelper *helper)
 	                                                         NULL);
 }
 
+static GdkPixbuf *
+try_create_icon (const gchar *data_dir)
+{
+	gchar *path;
+	gint width, height;
+	GdkPixbuf *icon;
+
+	path = g_build_filename (data_dir, "icons", "people.svg", NULL);
+
+	gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, &width, &height);
+	icon = gdk_pixbuf_new_from_file_at_size (path, width, height, NULL);
+	g_free (path);
+
+	return icon;
+}
+
 static gboolean
 build_ui (GeditCollaborationWindowHelper *helper)
 {
@@ -675,9 +691,6 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	GtkWidget *toolbar;
 	GtkWidget *image;
 	GdkPixbuf *icon;
-	gchar *icon_path;
-	gint width;
-	gint height;
 	GtkBuilder *builder;
 
 	builder = gedit_collaboration_create_builder (helper->priv->data_dir,
@@ -723,9 +736,12 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	gtk_box_pack_start (GTK_BOX (vbox), sw, TRUE, TRUE, 0);
 
 	/* Create collaboration icon */
-	icon_path = g_build_filename (helper->priv->data_dir, "icons", "people.svg", NULL);
-	gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, &width, &height);
-	icon = gdk_pixbuf_new_from_file_at_size (icon_path, width, height, NULL);
+	icon = try_create_icon (helper->priv->data_dir);
+
+	if (icon == NULL)
+	{
+		icon = try_create_icon (GEDIT_PLUGINS_DATA_DIR "/collaboration");
+	}
 
 	image = gtk_image_new_from_pixbuf (icon);
 
@@ -733,8 +749,6 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	{
 		g_object_unref (icon);
 	}
-
-	g_free (icon_path);
 
 	gtk_widget_show (image);
 	gedit_panel_add_item (panel, vbox, _("Collaboration"), image);
