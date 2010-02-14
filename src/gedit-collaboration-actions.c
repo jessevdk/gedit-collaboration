@@ -186,8 +186,8 @@ on_action_session_disconnect (GtkAction                      *action,
 	connection = infc_browser_get_connection (browser);
 	inf_xml_connection_close (connection);
 
-	inf_gtk_browser_store_reset_browser_status (helper->priv->browser_store,
-	                                            browser);
+	inf_gtk_browser_store_clear_connection_error (helper->priv->browser_store,
+	                                              connection);
 }
 
 void
