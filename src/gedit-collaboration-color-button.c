@@ -102,7 +102,7 @@ static void
 gedit_collaboration_color_button_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
 	GeditCollaborationColorButton *self = GEDIT_COLLABORATION_COLOR_BUTTON (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_MODAL:
@@ -124,7 +124,7 @@ static void
 gedit_collaboration_color_button_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
 	GeditCollaborationColorButton *self = GEDIT_COLLABORATION_COLOR_BUTTON (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_MODAL:
@@ -141,7 +141,7 @@ gedit_collaboration_color_button_class_init (GeditCollaborationColorButtonClass 
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	GtkButtonClass *button_class = GTK_BUTTON_CLASS (klass);
-	
+
 	object_class->finalize = gedit_collaboration_color_button_finalize;
 	button_class->clicked = color_button_clicked;
 

@@ -161,7 +161,7 @@ gedit_collaboration_bookmarks_set_property (GObject      *object,
                                             GParamSpec   *pspec)
 {
 	GeditCollaborationBookmarks *self = GEDIT_COLLABORATION_BOOKMARKS (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_FILENAME:
@@ -181,7 +181,7 @@ gedit_collaboration_bookmarks_get_property (GObject    *object,
                                             GParamSpec *pspec)
 {
 	GeditCollaborationBookmarks *self = GEDIT_COLLABORATION_BOOKMARKS (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_FILENAME:

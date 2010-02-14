@@ -21,7 +21,7 @@ typedef struct _GeditCollaborationPluginPrivate	GeditCollaborationPluginPrivate;
 
 struct _GeditCollaborationPlugin {
 	GeditPlugin parent;
-	
+
 	GeditCollaborationPluginPrivate *priv;
 };
 

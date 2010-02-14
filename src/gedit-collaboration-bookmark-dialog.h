@@ -22,7 +22,7 @@ typedef struct _GeditCollaborationBookmarkDialogPrivate	GeditCollaborationBookma
 
 struct _GeditCollaborationBookmarkDialog {
 	GtkDialog parent;
-	
+
 	GeditCollaborationBookmarkDialogPrivate *priv;
 };
 

@@ -45,7 +45,7 @@ gedit_collaboration_bookmark_set_property (GObject      *object,
                                            GParamSpec   *pspec)
 {
 	GeditCollaborationBookmark *self = GEDIT_COLLABORATION_BOOKMARK (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_NAME:
@@ -85,7 +85,7 @@ gedit_collaboration_bookmark_get_property (GObject    *object,
                                            GParamSpec *pspec)
 {
 	GeditCollaborationBookmark *self = GEDIT_COLLABORATION_BOOKMARK (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_NAME:

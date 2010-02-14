@@ -67,7 +67,7 @@ gedit_collaboration_window_helper_set_property (GObject      *object,
                                                 GParamSpec   *pspec)
 {
 	GeditCollaborationWindowHelper *self = GEDIT_COLLABORATION_WINDOW_HELPER (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_WINDOW:
@@ -95,7 +95,7 @@ gedit_collaboration_window_helper_get_property (GObject    *object,
                                                 GParamSpec *pspec)
 {
 	GeditCollaborationWindowHelper *self = GEDIT_COLLABORATION_WINDOW_HELPER (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_WINDOW:
@@ -200,7 +200,7 @@ update_sensitivity (GeditCollaborationWindowHelper *helper)
 	                          (browser == NULL ||
 	                           infc_browser_get_status (browser) != INFC_BROWSER_CONNECTED))));
 
-	
+
 	action = get_action (helper, "BookmarkEdit");
 	gtk_action_set_sensitive (action,
 	                          has_selection &&
@@ -655,7 +655,7 @@ static void
 gedit_collaboration_window_helper_class_init (GeditCollaborationWindowHelperClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
-	
+
 	object_class->finalize = gedit_collaboration_window_helper_finalize;
 	object_class->dispose = gedit_collaboration_window_helper_dispose;
 

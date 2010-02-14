@@ -78,7 +78,7 @@ gedit_collaboration_manager_get_property (GObject    *object,
                                           GParamSpec *pspec)
 {
 	GeditCollaborationManager *self = GEDIT_COLLABORATION_MANAGER (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_WINDOW:
@@ -97,7 +97,7 @@ gedit_collaboration_manager_set_property (GObject      *object,
                                           GParamSpec   *pspec)
 {
 	GeditCollaborationManager *self = GEDIT_COLLABORATION_MANAGER (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_WINDOW:
@@ -118,7 +118,7 @@ static void
 gedit_collaboration_manager_class_init (GeditCollaborationManagerClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
-	
+
 	object_class->finalize = gedit_collaboration_manager_finalize;
 	object_class->dispose = gedit_collaboration_manager_dispose;
 	object_class->set_property = gedit_collaboration_manager_set_property;
@@ -131,7 +131,7 @@ gedit_collaboration_manager_class_init (GeditCollaborationManagerClass *klass)
 	                                                      "Window",
 	                                                      GEDIT_TYPE_WINDOW,
 	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
-	
+
 
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationManagerPrivate));
 }

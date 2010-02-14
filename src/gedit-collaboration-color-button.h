@@ -21,7 +21,7 @@ typedef struct _GeditCollaborationColorButtonPrivate	GeditCollaborationColorButt
 
 struct _GeditCollaborationColorButton {
 	GtkColorButton parent;
-	
+
 	GeditCollaborationColorButtonPrivate *priv;
 };
 

@@ -25,7 +25,7 @@ typedef struct _GeditCollaborationManagerPrivate	GeditCollaborationManagerPrivat
 
 struct _GeditCollaborationManager {
 	GObject parent;
-	
+
 	GeditCollaborationManagerPrivate *priv;
 };
 

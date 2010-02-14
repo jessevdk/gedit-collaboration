@@ -22,7 +22,7 @@ typedef struct _GeditCollaborationBookmarksPrivate	GeditCollaborationBookmarksPr
 
 struct _GeditCollaborationBookmarks {
 	GObject parent;
-	
+
 	GeditCollaborationBookmarksPrivate *priv;
 };
 

@@ -22,7 +22,7 @@ typedef struct _GeditCollaborationWindowHelperPrivate	GeditCollaborationWindowHe
 
 struct _GeditCollaborationWindowHelper {
 	GObject parent;
-	
+
 	GeditCollaborationWindowHelperPrivate *priv;
 };
 

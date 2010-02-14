@@ -44,7 +44,7 @@ static void
 gedit_collaboration_user_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
 	GeditCollaborationUser *self = GEDIT_COLLABORATION_USER (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_NAME:
@@ -64,7 +64,7 @@ static void
 gedit_collaboration_user_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
 	GeditCollaborationUser *self = GEDIT_COLLABORATION_USER (object);
-	
+
 	switch (prop_id)
 	{
 		case PROP_NAME:
@@ -83,7 +83,7 @@ static void
 gedit_collaboration_user_class_init (GeditCollaborationUserClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
-	
+
 	object_class->finalize = gedit_collaboration_user_finalize;
 	object_class->set_property = gedit_collaboration_user_set_property;
 	object_class->get_property = gedit_collaboration_user_get_property;
