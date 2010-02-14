@@ -35,7 +35,8 @@ GType gedit_collaboration_document_message_register_type (GTypeModule *type_modu
 GQuark gedit_collaboration_document_message_error_quark (void);
 
 GtkWidget *gedit_collaboration_document_message_new_error (const GError *error);
-GtkWidget *gedit_collaboration_document_message_new_progress (const gchar *message);
+GtkWidget *gedit_collaboration_document_message_new_progress (const gchar *primary,
+                                                              const gchar *secondary);
 
 void gedit_collaboration_document_message_update (GeditCollaborationDocumentMessage *document_message,
                                                   gdouble                            fraction);

@@ -202,7 +202,8 @@ gedit_collaboration_document_message_new_error (const GError *error)
 }
 
 GtkWidget *
-gedit_collaboration_document_message_new_progress (const gchar *message)
+gedit_collaboration_document_message_new_progress (const gchar *primary,
+                                                   const gchar *secondary)
 {
 	GeditCollaborationDocumentMessage *ret;
 
@@ -210,8 +211,8 @@ gedit_collaboration_document_message_new_progress (const gchar *message)
 
 	set_message_area_text_and_icon (ret,
 	                                GTK_STOCK_DIALOG_INFO,
-	                                message,
-	                                NULL,
+	                                primary,
+	                                secondary,
 	                                TRUE);
 
 	gtk_info_bar_add_button (GTK_INFO_BAR (ret),
