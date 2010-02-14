@@ -54,15 +54,24 @@ AM_GLIB_GNU_GETTEXT
 # ================================================================
 # Start of pkg-config checks
 # ================================================================
-GEDIT_REQUIRED_VERSION=2.29.3
+GEDIT_REQUIRED_VERSION=2.28.0
 PKG_CHECK_MODULES(GEDIT, [
 	gedit-2.20 >= $GEDIT_REQUIRED_VERSION,
+	gtk+-2.0 >= 2.18
 	gconf-2.0 >= 1.1.11
 	libinfinity-0.4
 	libinfgtk-0.4
 	libinftextgtk-0.4
 	libxml-2.0
 ])
+
+PKG_CHECK_MODULES(GEDITDEV, [gedit-2.20 >= 2.29.5], [geditdev=yes], [geditdev=no])
+
+if test "$geditdev" = no; then
+	AC_SUBST(GEDIT_STABLE)
+	AC_DEFINE_UNQUOTED(GEDIT_STABLE,$GEDIT_STABLE, [gedit stable version])
+fi
+
 
 AM_GCONF_SOURCE_2
 
@@ -101,6 +110,7 @@ Configuration:
 	Source code location:   ${srcdir}
 	Compiler:               ${CC}
 	Prefix:			${prefix}
+	Stable:                 ${geditdev}
 
 Note: you have to install these plugins into the same prefix as your gedit
 installation (probably /usr if you're using your distro packages, /usr/local
