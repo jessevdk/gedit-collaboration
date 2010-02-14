@@ -70,10 +70,13 @@ plugin_activate_impl (GeditPlugin *plugin,
 	helper = gedit_collaboration_window_helper_new (window,
 	                                                gedit_plugin_get_data_dir (plugin));
 
-	g_object_set_data_full (G_OBJECT (window),
-	                        WINDOW_DATA_KEY,
-	                        helper,
-	                        (GDestroyNotify)g_object_unref);
+	if (helper != NULL)
+	{
+		g_object_set_data_full (G_OBJECT (window),
+		                        WINDOW_DATA_KEY,
+		                        helper,
+		                        (GDestroyNotify)g_object_unref);
+	}
 }
 
 static void

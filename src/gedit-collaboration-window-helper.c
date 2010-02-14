@@ -32,13 +32,30 @@ gedit_collaboration_window_helper_finalize (GObject *object)
 	helper = GEDIT_COLLABORATION_WINDOW_HELPER (object);
 	bookmarks = gedit_collaboration_bookmarks_get_default ();
 
-	g_signal_handler_disconnect (bookmarks, helper->priv->added_handler_id);
-	g_signal_handler_disconnect (bookmarks, helper->priv->removed_handler_id);
+	if (helper->priv->added_handler_id)
+	{
+		g_signal_handler_disconnect (bookmarks, helper->priv->added_handler_id);
+	}
 
-	g_object_unref (helper->priv->io);
-	inf_certificate_credentials_unref (helper->priv->certificate_credentials);
+	if (helper->priv->removed_handler_id)
+	{
+		g_signal_handler_disconnect (bookmarks, helper->priv->removed_handler_id);
+	}
 
-	g_object_unref (helper->priv->builder);
+	if (helper->priv->io)
+	{
+		g_object_unref (helper->priv->io);
+	}
+
+	if (helper->priv->certificate_credentials)
+	{
+		inf_certificate_credentials_unref (helper->priv->certificate_credentials);
+	}
+
+	if (helper->priv->builder)
+	{
+		g_object_unref (helper->priv->builder);
+	}
 
 	G_OBJECT_CLASS (gedit_collaboration_window_helper_parent_class)->finalize (object);
 }
@@ -50,14 +67,21 @@ gedit_collaboration_window_helper_dispose (GObject *object)
 
 	if (helper->priv->window)
 	{
-		GtkUIManager *manager;
-		GeditPanel *panel;
+		if (helper->priv->ui_id > 0)
+		{
+			GtkUIManager *manager;
 
-		manager = gedit_window_get_ui_manager (helper->priv->window);
-		gtk_ui_manager_remove_ui (manager, helper->priv->ui_id);
+			manager = gedit_window_get_ui_manager (helper->priv->window);
+			gtk_ui_manager_remove_ui (manager, helper->priv->ui_id);
+		}
 
-		panel = gedit_window_get_side_panel (helper->priv->window);
-		gedit_panel_remove_item (panel, helper->priv->panel_widget);
+		if (helper->priv->panel_widget)
+		{
+			GeditPanel *panel;
+
+			panel = gedit_window_get_side_panel (helper->priv->window);
+			gedit_panel_remove_item (panel, helper->priv->panel_widget);
+		}
 
 		g_object_unref (helper->priv->window);
 		helper->priv->window = NULL;
@@ -642,7 +666,7 @@ add_window_menu (GeditCollaborationWindowHelper *helper)
 	                                                         NULL);
 }
 
-static void
+static gboolean
 build_ui (GeditCollaborationWindowHelper *helper)
 {
 	GeditPanel *panel;
@@ -655,14 +679,13 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	gint width;
 	gint height;
 	GtkBuilder *builder;
-	GError *error = NULL;
 
 	builder = gedit_collaboration_create_builder (helper->priv->data_dir,
 	                                              XML_UI_FILE);
 
 	if (!builder)
 	{
-		return;
+		return FALSE;
 	}
 
 	helper->priv->builder = builder;
@@ -720,17 +743,32 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	update_sensitivity (helper);
 
 	add_window_menu (helper);
+	return TRUE;
 }
 
-static void
-gedit_collaboration_window_helper_constructed (GObject *object)
+static GObject *
+gedit_collaboration_window_helper_constructor (GType                  type,
+                                               guint                  n_construct_params,
+                                               GObjectConstructParam *construct_params)
 {
 	GeditCollaborationWindowHelper *helper;
+	GObject *ret;
 
-	helper = GEDIT_COLLABORATION_WINDOW_HELPER (object);
+	ret = G_OBJECT_CLASS (gedit_collaboration_window_helper_parent_class)->constructor (type,
+	                                                                                    n_construct_params,
+	                                                                                    construct_params);
+
+	helper = GEDIT_COLLABORATION_WINDOW_HELPER (ret);
+
 	helper->priv->manager = gedit_collaboration_manager_new (helper->priv->window);
 
-	build_ui (helper);
+	if (!build_ui (helper))
+	{
+		g_object_unref (ret);
+		return NULL;
+	}
+
+	return ret;
 }
 
 static void
@@ -743,7 +781,7 @@ gedit_collaboration_window_helper_class_init (GeditCollaborationWindowHelperClas
 
 	object_class->set_property = gedit_collaboration_window_helper_set_property;
 	object_class->get_property = gedit_collaboration_window_helper_get_property;
-	object_class->constructed = gedit_collaboration_window_helper_constructed;
+	object_class->constructor = gedit_collaboration_window_helper_constructor;
 
 	g_object_class_install_property (object_class,
 	                                 PROP_WINDOW,
