@@ -4,6 +4,7 @@
 #define __GEDIT_COLLABORATION_USER_H__
 
 #include <glib-object.h>
+#include <gsasl.h>
 
 G_BEGIN_DECLS
 
@@ -36,11 +37,15 @@ GeditCollaborationUser	*gedit_collaboration_user_get_default (void);
 
 const gchar 		*gedit_collaboration_user_get_name (GeditCollaborationUser *user);
 void			 gedit_collaboration_user_set_name (GeditCollaborationUser *user,
-                                                            const gchar            *name);
+			                                    const gchar            *name);
 
 gdouble			 gedit_collaboration_user_get_hue (GeditCollaborationUser *user);
 void			 gedit_collaboration_user_set_hue (GeditCollaborationUser *user,
-                                                           gdouble                 hue);
+			                                   gdouble                 hue);
+
+Gsasl			*gedit_collaboration_user_get_sasl_context (GeditCollaborationUser *user);
+void			 gedit_collaboration_user_set_password (GeditCollaborationUser *user,
+			                                        const gchar            *password);
 
 G_END_DECLS
 

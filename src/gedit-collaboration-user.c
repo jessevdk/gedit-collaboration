@@ -19,6 +19,10 @@ struct _GeditCollaborationUserPrivate
 {
 	gchar *name;
 	gdouble hue;
+
+	Gsasl *sasl_context;
+	gchar *password;
+	gboolean waiting_for_password;
 };
 
 /* Properties */
@@ -29,7 +33,16 @@ enum
 	PROP_HUE
 };
 
+/* Signals */
+enum
+{
+	REQUEST_PASSWORD,
+	NUM_SIGNALS
+};
+
 G_DEFINE_TYPE (GeditCollaborationUser, gedit_collaboration_user, G_TYPE_OBJECT)
+
+static guint signals[NUM_SIGNALS] = {0,};
 
 static void
 gedit_collaboration_user_finalize (GObject *object)
@@ -107,13 +120,90 @@ gedit_collaboration_user_class_init (GeditCollaborationUserClass *klass)
 	                                                      0,
 	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 
+	signals[REQUEST_PASSWORD] =
+		g_signal_new ("request-password",
+		              G_TYPE_FROM_CLASS (klass),
+		              G_SIGNAL_RUN_LAST,
+		              0,
+		              NULL,
+		              NULL,
+		              g_cclosure_marshal_VOID__POINTER,
+		              G_TYPE_NONE,
+		              1,
+		              G_TYPE_POINTER);
+
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationUserPrivate));
+}
+
+static gchar *
+get_password (GeditCollaborationUser *user,
+              gpointer                session_data)
+{
+	gchar *password;
+
+	user->priv->waiting_for_password = TRUE;
+
+	g_free (user->priv->password);
+	user->priv->password = NULL;
+
+	g_signal_emit (user, signals[REQUEST_PASSWORD], 0, session_data);
+	user->priv->waiting_for_password = FALSE;
+
+	password = user->priv->password;
+	user->priv->password = NULL;
+
+	return password;
+}
+
+static int
+sasl_callback (Gsasl          *context,
+               Gsasl_session  *session,
+               Gsasl_property  prop)
+{
+	GeditCollaborationUser *user = gsasl_callback_hook_get (context);
+	gpointer session_data = gsasl_session_hook_get (session);
+
+	int rc = GSASL_NO_CALLBACK;
+
+	switch (prop)
+	{
+		case GSASL_PASSWORD:
+		{
+			gchar *password = get_password (user,
+			                                session_data);
+
+			if (password)
+			{
+				gsasl_property_set (session, prop, password);
+				rc = GSASL_OK;
+			}
+
+			g_free (password);
+		}
+		break;
+		case GSASL_AUTHID:
+		case GSASL_ANONYMOUS_TOKEN:
+			gsasl_property_set (session, prop, user->priv->name);
+			rc = GSASL_OK;
+		break;
+		case GSASL_VALIDATE_ANONYMOUS:
+			rc = GSASL_OK;
+		break;
+		default:
+		break;
+	}
+
+	return rc;
 }
 
 static void
 gedit_collaboration_user_init (GeditCollaborationUser *self)
 {
 	self->priv = GEDIT_COLLABORATION_USER_GET_PRIVATE (self);
+
+	gsasl_init (&self->priv->sasl_context);
+	gsasl_callback_set (self->priv->sasl_context, sasl_callback);
+	gsasl_callback_hook_set (self->priv->sasl_context, self);
 }
 
 GeditCollaborationUser *
@@ -324,4 +414,22 @@ gedit_collaboration_user_get_default ()
 	}
 
 	return default_user;
+}
+
+Gsasl *
+gedit_collaboration_user_get_sasl_context (GeditCollaborationUser *user)
+{
+	g_return_val_if_fail (GEDIT_COLLABORATION_IS_USER (user), NULL);
+
+	return user->priv->sasl_context;
+}
+
+void
+gedit_collaboration_user_set_password (GeditCollaborationUser *user,
+                                       const gchar            *password)
+{
+	g_return_if_fail (GEDIT_COLLABORATION_IS_USER (user));
+	g_return_if_fail (user->priv->waiting_for_password);
+
+	user->priv->password = g_strdup (password);
 }

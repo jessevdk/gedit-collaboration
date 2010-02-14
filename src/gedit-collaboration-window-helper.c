@@ -144,29 +144,6 @@ gedit_collaboration_window_helper_get_property (GObject    *object,
 	}
 }
 
-static int
-sasl_callback (Gsasl          *ctx,
-               Gsasl_session  *sctx,
-               Gsasl_property  prop)
-{
-	int rc = GSASL_NO_CALLBACK;
-
-	switch (prop)
-	{
-		case GSASL_PASSWORD:
-			/* TODO */
-		break;
-		case GSASL_AUTHID:
-		case GSASL_ANONYMOUS_TOKEN:
-			gsasl_property_set (sctx, prop, "Jesse");
-		break;
-		default:
-		break;
-	}
-
-	return rc;
-}
-
 static GtkActionGroup *
 get_action_group (GeditCollaborationWindowHelper *helper,
                   const gchar                    *id)
@@ -311,6 +288,82 @@ name_info_free (NameInfo *info)
 	g_slice_free (NameInfo, info);
 }
 
+static gchar *
+show_password_dialog (GeditCollaborationWindowHelper *helper,
+                      GeditCollaborationUser         *user,
+                      InfXmppConnection              *connection)
+{
+	GtkBuilder *builder;
+	GtkWidget *dialog;
+	GtkWidget *label;
+	GtkWidget *entry;
+	gchar *password;
+	gchar *remote;
+	gchar *text;
+	gchar *name;
+
+	builder = gedit_collaboration_create_builder (helper->priv->data_dir,
+	                                              "gedit-collaboration-password-dialog.ui");
+
+	if (!builder)
+	{
+		return NULL;
+	}
+
+	dialog = GTK_WIDGET (gtk_builder_get_object (builder, "dialog_password"));
+	label = GTK_WIDGET (gtk_builder_get_object (builder, "label_caption"));
+	entry = GTK_WIDGET (gtk_builder_get_object (builder, "entry_password"));
+
+	g_object_get (connection, "remote-hostname", &remote, NULL);
+
+	name = g_strdup_printf ("<i>%s@%s</i>",
+	                       gedit_collaboration_user_get_name (user),
+	                       remote);
+	g_free (remote);
+
+	text = g_strdup_printf (_("Please provide a password for %s"),
+	                        name);
+	g_free (name);
+
+	gtk_label_set_markup (GTK_LABEL (label),
+	                      text);
+	g_free (text);
+
+	/* Need to do this modal/sync for now */
+	if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_OK)
+	{
+		password = g_strdup (gtk_entry_get_text (GTK_ENTRY (entry)));
+
+		if (!*password)
+		{
+			g_free (password);
+			password = NULL;
+		}
+	}
+	else
+	{
+		password = NULL;
+	}
+
+	g_object_unref (builder);
+	gtk_widget_destroy (dialog);
+
+	return password;
+}
+
+static void
+user_request_password (GeditCollaborationUser         *user,
+                       gpointer                        session_data,
+                       GeditCollaborationWindowHelper *helper)
+{
+	gchar *password;
+
+	password = show_password_dialog (helper, user, session_data);
+	gedit_collaboration_user_set_password (user, password);
+
+	g_free (password);
+}
+
 static void
 bookmark_added (GeditCollaborationWindowHelper *helper,
                 GeditCollaborationBookmark     *bookmark)
@@ -322,6 +375,7 @@ bookmark_added (GeditCollaborationWindowHelper *helper,
 	InfXmppConnection *connection;
 	gchar *ipaddr;
 	NameInfo *info;
+	GeditCollaborationUser *user;
 
 	/* TODO: make this asynchronous and be smarter about it */
 	addresses = g_resolver_lookup_by_name (resolver,
@@ -344,14 +398,20 @@ bookmark_added (GeditCollaborationWindowHelper *helper,
 	                              ipaddress,
 	                              (guint)gedit_collaboration_bookmark_get_port (bookmark));
 
+	user = gedit_collaboration_bookmark_get_user (bookmark);
 	connection = inf_xmpp_connection_new (tcp,
 	                                      INF_XMPP_CONNECTION_CLIENT,
 	                                      NULL,
 	                                      gedit_collaboration_bookmark_get_host (bookmark),
 	                                      INF_XMPP_CONNECTION_SECURITY_BOTH_PREFER_TLS,
 	                                      helper->priv->certificate_credentials,
-	                                      helper->priv->sasl_ctx,
+	                                      gedit_collaboration_user_get_sasl_context (user),
 	                                      "ANONYMOUS PLAIN");
+
+	g_signal_connect (user,
+	                  "request-password",
+	                  G_CALLBACK (user_request_password),
+	                  helper);
 
 	inf_gtk_browser_store_add_connection (helper->priv->browser_store,
 	                                      INF_XML_CONNECTION (connection),
@@ -550,6 +610,31 @@ on_browser_activate (InfGtkBrowserView              *view,
 	}
 }
 
+#ifdef LIBINFINITY_HAVE_AVAHI
+static void
+init_infinity_discovery (GeditCollaborationWindowHelper *helper,
+                         InfXmppManager                 *xmpp_manager)
+{
+	InfDiscoveryAvahi *discovery;
+	GeditCollaborationUser *user;
+
+	user = gedit_collaboration_user_get_default ();
+	discovery = inf_discovery_avahi_new (helper->priv->io,
+	                                     xmpp_manager,
+	                                     helper->priv->certificate_credentials,
+	                                     gedit_collaboration_user_get_sasl_context (user),
+	                                     "ANONYMOUS PLAIN");
+
+	g_signal_connect (user,
+	                 "request-password",
+	                 G_CALLBACK (user_request_password),
+	                 helper);
+
+	inf_gtk_browser_store_add_discovery (helper->priv->browser_store,
+	                                     INF_DISCOVERY (discovery));
+}
+#endif
+
 static void
 init_infinity (GeditCollaborationWindowHelper *helper)
 {
@@ -562,9 +647,6 @@ init_infinity (GeditCollaborationWindowHelper *helper)
 	communication_manager = inf_communication_manager_new ();
 	xmpp_manager = inf_xmpp_manager_new ();
 	certificate_credentials = inf_certificate_credentials_new ();
-
-	gsasl_init (&helper->priv->sasl_ctx);
-	gsasl_callback_set (helper->priv->sasl_ctx, sasl_callback);
 
 	helper->priv->io = INF_IO (io);
 	helper->priv->certificate_credentials = certificate_credentials;
@@ -597,14 +679,7 @@ init_infinity (GeditCollaborationWindowHelper *helper)
 	                  helper);
 
 #ifdef LIBINFINITY_HAVE_AVAHI
-	InfDiscoveryAvahi *discovery = inf_discovery_avahi_new (INF_IO (io),
-	                                                        xmpp_manager,
-	                                                        certificate_credentials,
-	                                                        helper->priv->sasl_ctx,
-	                                                        "ANONYMOUS PLAIN");
-
-	inf_gtk_browser_store_add_discovery (helper->priv->browser_store,
-	                                     INF_DISCOVERY (discovery));
+	init_infinity_discovery (helper, xmpp_manager);
 #endif
 
 	init_bookmarks (helper);

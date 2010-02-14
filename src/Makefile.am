@@ -48,7 +48,8 @@ uidir = $(GEDIT_PLUGINS_DATA_DIR)/collaboration
 ui_DATA = \
 	gedit-collaboration-window-helper.ui \
 	gedit-collaboration-bookmark-dialog.ui \
-	gedit-collaboration-configuration.ui
+	gedit-collaboration-configuration.ui \
+	gedit-collaboration-password-dialog.ui
 
 %.gedit-plugin: %.gedit-plugin.desktop.in $(INTLTOOL_MERGE) $(wildcard $(top_srcdir)/po/*po) ; $(INTLTOOL_MERGE) $(top_srcdir)/po $< $@ -d -u -c $(top_builddir)/po/.intltool-merge-cache
 

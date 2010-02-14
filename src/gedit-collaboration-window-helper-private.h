@@ -41,8 +41,6 @@ struct _GeditCollaborationWindowHelperPrivate
 	GtkUIManager *uimanager;
 	GtkWidget *panel_widget;
 
-	Gsasl *sasl_ctx;
-
 	guint ui_id;
 	GtkActionGroup *action_group;
 };
