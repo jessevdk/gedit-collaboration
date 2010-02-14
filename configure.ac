@@ -16,6 +16,7 @@ m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 AC_CONFIG_HEADERS([config.h])
 AC_DISABLE_STATIC
 
+AC_PATH_PROG(GCONFTOOL, gconftool-2)
 IT_PROG_INTLTOOL([0.35.0])
 AC_PROG_LIBTOOL
 
@@ -56,9 +57,14 @@ AM_GLIB_GNU_GETTEXT
 GEDIT_REQUIRED_VERSION=2.29.3
 PKG_CHECK_MODULES(GEDIT, [
 	gedit-2.20 >= $GEDIT_REQUIRED_VERSION,
+	gconf-2.0 >= 1.1.11
 	libinfinity-0.4
 	libinfgtk-0.4
+	libinftextgtk-0.4
+	libxml-2.0
 ])
+
+AM_GCONF_SOURCE_2
 
 # ================================================================
 # Misc
@@ -80,6 +86,7 @@ AC_SUBST(GEDIT_PLUGINS_DATA_DIR)
 
 AC_CONFIG_FILES([
 Makefile
+data/Makefile
 src/Makefile
 src/collaboration.gedit-plugin.desktop.in
 po/Makefile.in

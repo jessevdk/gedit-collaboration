@@ -1,20 +1,13 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
+
 #include "gedit-collaboration-window-helper.h"
+#include "gedit-collaboration-bookmarks.h"
+#include "gedit-collaboration-bookmark-dialog.h"
 
-#include <config.h>
-#include <glib/gi18n-lib.h>
-#include <gedit/gedit-plugin.h>
+#include "gedit-collaboration-window-helper-private.h"
 
-#include <libinfgtk/inf-gtk-browser-view.h>
-#include <libinfgtk/inf-gtk-browser-store.h>
-#include <libinfgtk/inf-gtk-io.h>
-#include <libinfinity/common/inf-xmpp-manager.h>
-#include <libinfinity/inf-config.h>
-
-#ifdef LIBINFINITY_HAVE_AVAHI
-#include <libinfinity/common/inf-discovery-avahi.h>
-#endif
-
-#define XML_UI_FILE "gedit-collaboration-window-helper-ui.xml"
+#define XML_UI_FILE "gedit-collaboration-window-helper.ui"
+#define DIALOG_BUILDER_KEY "GeditCollaborationBookmarkDialogKey"
 
 #define GEDIT_COLLABORATION_WINDOW_HELPER_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GEDIT_TYPE_COLLABORATION_WINDOW_HELPER, GeditCollaborationWindowHelperPrivate))
 
@@ -26,27 +19,45 @@ enum
 	PROP_DATA_DIR
 };
 
-struct _GeditCollaborationWindowHelperPrivate
-{
-	GeditWindow *window;
-	gchar *data_dir;
-
-	InfGtkBrowserStore *browser_store;
-	GtkWidget *browser_view;
-
-	GtkUIManager *manager;
-	GtkActionGroup *action_group;
-
-	Gsasl *sasl_ctx;
-};
-
 GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationWindowHelper, gedit_collaboration_window_helper,
                           G_TYPE_OBJECT)
 
 static void
 gedit_collaboration_window_helper_finalize (GObject *object)
 {
+	GeditCollaborationWindowHelper *helper;
+	GeditCollaborationBookmarks *bookmarks;
+
+	helper = GEDIT_COLLABORATION_WINDOW_HELPER (object);
+	bookmarks = gedit_collaboration_bookmarks_get_default ();
+
+	g_signal_handler_disconnect (bookmarks, helper->priv->added_handler_id);
+	g_signal_handler_disconnect (bookmarks, helper->priv->removed_handler_id);
+
+	g_object_unref (helper->priv->io);
+	inf_certificate_credentials_unref (helper->priv->certificate_credentials);
+
+	g_object_unref (helper->priv->builder);
+
 	G_OBJECT_CLASS (gedit_collaboration_window_helper_parent_class)->finalize (object);
+}
+
+static void
+gedit_collaboration_window_helper_dispose (GObject *object)
+{
+	GeditCollaborationWindowHelper *helper = GEDIT_COLLABORATION_WINDOW_HELPER (object);
+
+	if (helper->priv->window)
+	{
+		g_object_unref (helper->priv->window);
+		helper->priv->window = NULL;
+	}
+
+	if (helper->priv->manager)
+	{
+		g_object_unref (helper->priv->manager);
+		helper->priv->manager = NULL;
+	}
 }
 
 static void
@@ -60,7 +71,12 @@ gedit_collaboration_window_helper_set_property (GObject      *object,
 	switch (prop_id)
 	{
 		case PROP_WINDOW:
-			self->priv->window = GEDIT_WINDOW (g_value_get_object (value));
+			if (self->priv->window)
+			{
+				g_object_unref (self->priv->window);
+			}
+
+			self->priv->window = g_value_dup_object (value);
 		break;
 		case PROP_DATA_DIR:
 			g_free (self->priv->data_dir);
@@ -110,67 +126,100 @@ sasl_callback (Gsasl          *ctx,
 		case GSASL_ANONYMOUS_TOKEN:
 			gsasl_property_set (sctx, prop, "Jesse");
 		break;
+		default:
+		break;
 	}
 
 	return rc;
 }
 
+static GtkActionGroup *
+get_action_group (GeditCollaborationWindowHelper *helper,
+                  const gchar                    *id)
+{
+	return GTK_ACTION_GROUP (gtk_builder_get_object (helper->priv->builder, id));
+}
+
+static GtkAction *
+get_action (GeditCollaborationWindowHelper *helper,
+            const gchar                    *id)
+{
+	return GTK_ACTION (gtk_builder_get_object (helper->priv->builder, id));
+}
+
 static void
 update_sensitivity (GeditCollaborationWindowHelper *helper)
 {
-	gboolean selection;
+	gboolean has_selection;
 	GtkTreeIter selected;
 	InfcBrowser *browser = NULL;
-	InfcBrowserIter *browser_iter = NULL;
+	InfDiscovery *discovery = NULL;
 	GtkTreeModel *model;
-	GtkTreePath *path;
 	GtkAction *action;
+	GtkTreePath *path;
+	gboolean toplevel = FALSE;
 
 	model = GTK_TREE_MODEL (helper->priv->browser_store);
 
-	selection =
+	has_selection =
 		inf_gtk_browser_view_get_selected (INF_GTK_BROWSER_VIEW (helper->priv->browser_view),
 		                                   &selected);
 
-	if (!selection)
+	if (has_selection)
 	{
-		gtk_action_group_set_sensitive (helper->priv->action_group,
-		                                FALSE);
-		return;
+		/* Check if the iter is a top-level (aka. browser node) */
+		gtk_tree_model_get (model,
+		                    &selected,
+		                    INF_GTK_BROWSER_MODEL_COL_BROWSER,
+		                    &browser,
+		                    INF_GTK_BROWSER_MODEL_COL_DISCOVERY,
+		                    &discovery,
+		                    -1);
+
+		path = gtk_tree_model_get_path (model, &selected);
+		toplevel = gtk_tree_path_get_depth (path) == 1;
+		gtk_tree_path_free (path);
 	}
 
-	/* Check if the iter is a top-level (aka. browser node) */
-	gtk_tree_model_get (model,
-	                    &selected,
-	                    INF_GTK_BROWSER_MODEL_COL_BROWSER,
-	                    &browser,
-	                    -1);
+	gtk_action_group_set_sensitive (get_action_group (helper, "action_group_connected"),
+	                                browser != NULL &&
+	                                infc_browser_get_status (browser) == INFC_BROWSER_CONNECTED);
 
-	if (browser == NULL)
-	{
-		/* No browser, can't do anything with that */
-		gtk_action_group_set_sensitive (helper->priv->action_group,
-		                                FALSE);
-		return;
-	}
+	action = get_action (helper, "SessionDisconnect");
+	gtk_action_set_sensitive (action,
+	                          toplevel &&
+	                          browser != NULL &&
+	                          infc_browser_get_status (browser) != INFC_BROWSER_DISCONNECTED);
 
-	gtk_action_group_set_sensitive (helper->priv->action_group,
-	                                TRUE);
+	/* Handle other actions manually */
+	action = get_action (helper, "ItemDelete");
+	gtk_action_set_sensitive (action,
+	                          has_selection &&
+	                          (!toplevel || (
+	                          discovery == NULL &&
+	                          (browser == NULL ||
+	                           infc_browser_get_status (browser) != INFC_BROWSER_CONNECTED))));
 
-	path = gtk_tree_model_get_path (model,
-	                                &selected);
-
-	action = gtk_action_group_get_action (helper->priv->action_group,
-	                                      "FileDelete");
-
-	gtk_action_set_sensitive (action, gtk_tree_path_get_depth (path) > 1);
-	gtk_tree_path_free (path);
+	
+	action = get_action (helper, "BookmarkEdit");
+	gtk_action_set_sensitive (action,
+	                          has_selection &&
+	                          discovery == NULL &&
+	                          toplevel);
 }
 
 static void
 on_selection_changed (InfGtkBrowserView              *browser_view,
                       GtkTreeIter                    *iter,
                       GeditCollaborationWindowHelper *helper)
+{
+	update_sensitivity (helper);
+}
+
+static void
+on_browser_status_changed (InfcBrowser                    *browser,
+                           GParamSpec                     *spec,
+                           GeditCollaborationWindowHelper *helper)
 {
 	update_sensitivity (helper);
 }
@@ -184,11 +233,260 @@ on_set_browser (InfGtkBrowserModel             *model,
 {
 	if (browser != NULL)
 	{
-		/* TODO:
-		infc_browser_add_plugin (browser, &INF_TEST_GTK_BROWSER_TEXT_PLUGIN); */
+		infc_browser_add_plugin (browser,
+		                         gedit_collaboration_manager_get_note_plugin (helper->priv->manager));
+
+		g_signal_connect (browser,
+		                  "notify::status",
+		                  G_CALLBACK (on_browser_status_changed),
+		                  helper);
 	}
 
 	update_sensitivity (helper);
+}
+
+typedef struct
+{
+	GeditCollaborationWindowHelper *helper;
+	InfXmlConnection *connection;
+} NameInfo;
+
+static void
+on_bookmark_name_changed (GeditCollaborationBookmark *bookmark,
+                          GParamSpec                 *spec,
+                          NameInfo                   *info)
+{
+	inf_gtk_browser_store_set_connection_name (info->helper->priv->browser_store,
+	                                           info->connection,
+	                                           gedit_collaboration_bookmark_get_name (bookmark));
+}
+
+static void
+name_info_free (NameInfo *info)
+{
+	g_slice_free (NameInfo, info);
+}
+
+static void
+bookmark_added (GeditCollaborationWindowHelper *helper,
+                GeditCollaborationBookmark     *bookmark)
+{
+	GResolver *resolver = g_resolver_get_default ();
+	GList *addresses;
+	InfTcpConnection *tcp;
+	InfIpAddress *ipaddress;
+	InfXmppConnection *connection;
+	gchar *ipaddr;
+	NameInfo *info;
+
+	/* TODO: make this asynchronous and be smarter about it */
+	addresses = g_resolver_lookup_by_name (resolver,
+	                                       gedit_collaboration_bookmark_get_host (bookmark),
+	                                       NULL,
+	                                       NULL);
+
+	if (!addresses)
+	{
+		return;
+	}
+
+	ipaddr = g_inet_address_to_string ((GInetAddress *)addresses->data);
+	g_resolver_free_addresses (addresses);
+
+	ipaddress = inf_ip_address_new_from_string (ipaddr);
+	g_free (ipaddr);
+
+	tcp = inf_tcp_connection_new (helper->priv->io,
+	                              ipaddress,
+	                              (guint)gedit_collaboration_bookmark_get_port (bookmark));
+
+	connection = inf_xmpp_connection_new (tcp,
+	                                      INF_XMPP_CONNECTION_CLIENT,
+	                                      NULL,
+	                                      gedit_collaboration_bookmark_get_host (bookmark),
+	                                      INF_XMPP_CONNECTION_SECURITY_BOTH_PREFER_TLS,
+	                                      helper->priv->certificate_credentials,
+	                                      helper->priv->sasl_ctx,
+	                                      "ANONYMOUS PLAIN");
+
+	inf_gtk_browser_store_add_connection (helper->priv->browser_store,
+	                                      INF_XML_CONNECTION (connection),
+	                                      gedit_collaboration_bookmark_get_name (bookmark));
+
+	g_object_set_data (G_OBJECT (connection), BOOKMARK_DATA_KEY, bookmark);
+
+	inf_ip_address_free (ipaddress);
+	g_object_unref (tcp);
+
+	info = g_slice_new (NameInfo);
+	info->helper = helper;
+	info->connection = INF_XML_CONNECTION (connection);
+
+	g_signal_connect_data (bookmark,
+	                       "notify::name",
+	                       G_CALLBACK (on_bookmark_name_changed),
+	                       info,
+	                       (GClosureNotify)name_info_free,
+	                       0);
+}
+
+static void
+on_bookmark_added (GeditCollaborationBookmarks    *bookmarks,
+                   GeditCollaborationBookmark     *bookmark,
+                   GeditCollaborationWindowHelper *helper)
+{
+	bookmark_added (helper, bookmark);
+}
+
+static void
+on_bookmark_removed (GeditCollaborationBookmarks    *bookmarks,
+                     GeditCollaborationBookmark     *bookmark,
+                     GeditCollaborationWindowHelper *helper)
+{
+
+}
+
+static void
+init_bookmarks (GeditCollaborationWindowHelper *helper)
+{
+	GeditCollaborationBookmarks *bookmarks;
+	GList *item;
+
+	bookmarks = gedit_collaboration_bookmarks_get_default ();
+	item = gedit_collaboration_bookmarks_get_bookmarks (bookmarks);
+
+	while (item)
+	{
+		GeditCollaborationBookmark *bookmark = item->data;
+
+		bookmark_added (helper, bookmark);
+		item = g_list_next (item);
+	}
+
+	helper->priv->added_handler_id =
+		g_signal_connect (bookmarks,
+		                  "added",
+		                  G_CALLBACK (on_bookmark_added),
+		                  helper);
+
+	helper->priv->removed_handler_id =
+		g_signal_connect (bookmarks,
+		                  "removed",
+		                  G_CALLBACK (on_bookmark_removed),
+		                  helper);
+}
+
+static gboolean
+create_popup_menu_item (GeditCollaborationWindowHelper *helper,
+                        GtkMenu                        *menu,
+                        const gchar                    *id,
+                        gboolean                        create_separator)
+{
+	GtkAction *action;
+	GtkWidget *item;
+	GtkActionGroup *ac;
+
+	action = get_action (helper, id);
+	g_object_get (action, "action-group", &ac, NULL);
+
+	if (!gtk_action_get_sensitive (action) ||
+	    !gtk_action_group_get_sensitive (ac))
+	{
+		g_object_unref (ac);
+		return FALSE;
+	}
+
+	gtk_action_set_accel_group (action,
+	                            gtk_ui_manager_get_accel_group (helper->priv->uimanager));
+
+	g_object_unref (ac);
+
+	if (create_separator)
+	{
+		item = gtk_separator_menu_item_new ();
+		gtk_widget_show (item);
+
+		gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
+	}
+
+	item = gtk_action_create_menu_item (action);
+	gtk_widget_show (item);
+
+	gtk_menu_shell_append (GTK_MENU_SHELL (menu), item);
+
+	return TRUE;
+}
+
+static void
+on_populate_popup (InfGtkBrowserView              *view,
+                   GtkMenu                        *menu,
+                   GeditCollaborationWindowHelper *helper)
+{
+	gboolean createsep;
+
+	create_popup_menu_item (helper, menu, "FileNew", FALSE);
+	createsep = create_popup_menu_item (helper, menu, "FolderNew", FALSE);
+
+	createsep &= !create_popup_menu_item (helper, menu, "ItemDelete", createsep);
+	createsep |= create_popup_menu_item (helper, menu, "SessionDisconnect", createsep);
+
+	createsep &= !create_popup_menu_item (helper, menu, "BookmarkNew", createsep);
+	create_popup_menu_item (helper, menu, "BookmarkEdit", createsep);
+}
+
+static void
+on_browser_activate (InfGtkBrowserView              *view,
+                     GtkTreeIter                    *iter,
+                     GeditCollaborationWindowHelper *helper)
+{
+	InfcBrowser *browser;
+	InfcBrowserIter *browser_iter;
+	InfDiscovery *discovery;
+	GeditCollaborationUser *user;
+
+	gtk_tree_model_get (GTK_TREE_MODEL (helper->priv->browser_store),
+	                    iter,
+	                    INF_GTK_BROWSER_MODEL_COL_BROWSER,
+	                    &browser,
+	                    INF_GTK_BROWSER_MODEL_COL_DISCOVERY,
+	                    &discovery,
+	                    -1);
+
+	if (browser == NULL)
+	{
+		return;
+	}
+
+	gtk_tree_model_get (GTK_TREE_MODEL (helper->priv->browser_store),
+	                    iter,
+	                    INF_GTK_BROWSER_MODEL_COL_NODE,
+	                    &browser_iter,
+	                    -1);
+
+	if (browser_iter == NULL ||
+	    infc_browser_iter_is_subdirectory (browser, browser_iter))
+	{
+		return;
+	}
+
+	if (discovery)
+	{
+		user = gedit_collaboration_user_get_default ();
+	}
+	else
+	{
+		GeditCollaborationBookmark *bookmark;
+
+		bookmark = g_object_get_data (G_OBJECT (infc_browser_get_connection (browser)),
+		                              BOOKMARK_DATA_KEY);
+
+		user = gedit_collaboration_bookmark_get_user (bookmark);
+	}
+
+	gedit_collaboration_manager_subscribe (helper->priv->manager,
+	                                       user,
+	                                       browser,
+	                                       browser_iter);
 }
 
 static void
@@ -207,6 +505,8 @@ init_infinity (GeditCollaborationWindowHelper *helper)
 	gsasl_init (&helper->priv->sasl_ctx);
 	gsasl_callback_set (helper->priv->sasl_ctx, sasl_callback);
 
+	helper->priv->io = INF_IO (io);
+	helper->priv->certificate_credentials = certificate_credentials;
 	helper->priv->browser_store = inf_gtk_browser_store_new (INF_IO (io),
 	                                                         communication_manager);
 
@@ -225,6 +525,16 @@ init_infinity (GeditCollaborationWindowHelper *helper)
 	                  G_CALLBACK (on_selection_changed),
 	                  helper);
 
+	g_signal_connect (helper->priv->browser_view,
+	                  "populate-popup",
+	                  G_CALLBACK (on_populate_popup),
+	                  helper);
+
+	g_signal_connect (helper->priv->browser_view,
+	                  "activate",
+	                  G_CALLBACK (on_browser_activate),
+	                  helper);
+
 #ifdef LIBINFINITY_HAVE_AVAHI
 	InfDiscoveryAvahi *discovery = inf_discovery_avahi_new (INF_IO (io),
 	                                                        xmpp_manager,
@@ -236,93 +546,12 @@ init_infinity (GeditCollaborationWindowHelper *helper)
 	                                     INF_DISCOVERY (discovery));
 #endif
 
-	g_object_unref (io);
+	init_bookmarks (helper);
+
 	g_object_unref (communication_manager);
 	g_object_unref (xmpp_manager);
-	inf_certificate_credentials_unref (certificate_credentials);
 }
 
-static void
-on_action_file_new (GtkAction                      *action,
-                    GeditCollaborationWindowHelper *helper)
-{
-
-}
-
-static void
-on_action_directory_new (GtkAction                      *action,
-                         GeditCollaborationWindowHelper *helper)
-{
-
-}
-
-static void
-on_action_file_delete (GtkAction                      *action,
-                       GeditCollaborationWindowHelper *helper)
-{
-
-}
-
-static GtkActionEntry action_entries[] =
-{
-	{"FileNew", GTK_STOCK_NEW, N_("_New File"), NULL,
-	 N_("Create a new file"),
-	 G_CALLBACK (on_action_file_new)},
-
-	 {"DirectoryNew", "folder-new", N_("_New Folder"), NULL,
-	 N_("Create new empty folder"),
-	 G_CALLBACK (on_action_directory_new)},
-
-	{"FileDelete", GTK_STOCK_DELETE, N_("_Delete"), NULL,
-	 N_("Delete selected file or folder"),
-	 G_CALLBACK (on_action_file_delete)}
-};
-
-static GtkWidget *
-build_toolbar (GeditCollaborationWindowHelper *helper)
-{
-	GtkUIManager *manager;
-	GError *error = NULL;
-	GtkActionGroup *action_group;
-	GtkWidget *toolbar;
-	GtkWidget *widget;
-	GtkAction *action;
-	gchar *ui_file;
-
-	manager = gtk_ui_manager_new ();
-	helper->priv->manager = manager;
-
-	ui_file = g_build_filename (helper->priv->data_dir, XML_UI_FILE, NULL);
-	gtk_ui_manager_add_ui_from_file (manager, ui_file, &error);
-
-	g_free (ui_file);
-
-	if (error != NULL) {
-		g_warning ("Error in adding ui from file %s: %s",
-			   XML_UI_FILE, error->message);
-		g_error_free (error);
-		return;
-	}
-
-	action_group = gtk_action_group_new ("GeditCollaborationWindowHelperActions");
-	gtk_action_group_set_translation_domain (action_group, NULL);
-	gtk_action_group_add_actions (action_group,
-	                              action_entries,
-	                              G_N_ELEMENTS (action_entries),
-	                              helper);
-
-	gtk_ui_manager_insert_action_group (manager, action_group, 0);
-	helper->priv->action_group = action_group;
-
-	toolbar = gtk_ui_manager_get_widget (manager, "/ToolBar");
-
-	gtk_toolbar_set_style (GTK_TOOLBAR (toolbar), GTK_TOOLBAR_ICONS);
-	gtk_toolbar_set_icon_size (GTK_TOOLBAR (toolbar), GTK_ICON_SIZE_MENU);
-
-	gtk_widget_show (toolbar);
-
-	return toolbar;
-}
 
 static void
 build_ui (GeditCollaborationWindowHelper *helper)
@@ -331,13 +560,48 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	GtkWidget *vbox;
 	GtkWidget *sw;
 	GtkWidget *toolbar;
+	GtkWidget *image;
+	GdkPixbuf *icon;
+	gchar *icon_path;
+	gint width;
+	gint height;
+	gchar *ui_file;
+	GtkBuilder *builder;
+	GError *error = NULL;
 
+	ui_file = g_build_filename (helper->priv->data_dir, XML_UI_FILE, NULL);
+	builder = gtk_builder_new ();
+
+	if (!gtk_builder_add_from_file (builder, ui_file, &error))
+	{
+		g_warning ("Error in adding ui from file %s: %s",
+		           XML_UI_FILE,
+		           error->message);
+
+		g_error_free (error);
+		g_free (ui_file);
+		g_object_unref (builder);
+
+		return;
+	}
+
+	g_free (ui_file);
+	helper->priv->builder = builder;
+	helper->priv->uimanager = GTK_UI_MANAGER (gtk_builder_get_object (builder, "uimanager"));
+
+	gtk_builder_connect_signals (builder, helper);
+
+	/* Create panel */
 	panel = gedit_window_get_side_panel (helper->priv->window);
 
 	vbox = gtk_vbox_new (FALSE, 3);
 	gtk_widget_show (vbox);
 
-	toolbar = build_toolbar (helper);
+	toolbar = gtk_ui_manager_get_widget (helper->priv->uimanager, "/ToolBar");
+	gtk_toolbar_set_style (GTK_TOOLBAR (toolbar), GTK_TOOLBAR_ICONS);
+	gtk_toolbar_set_icon_size (GTK_TOOLBAR (toolbar), GTK_ICON_SIZE_MENU);
+	gtk_widget_show (toolbar);
+
 	gtk_box_pack_start (GTK_BOX (vbox), toolbar, FALSE, TRUE, 0);
 
 	sw = gtk_scrolled_window_new (NULL, NULL);
@@ -350,12 +614,28 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (sw),
 	                                     GTK_SHADOW_ETCHED_IN);
 
+	/* Initialize libinfinity stuff */
 	init_infinity (helper);
-
 	gtk_container_add (GTK_CONTAINER (sw), helper->priv->browser_view);
 
 	gtk_box_pack_start (GTK_BOX (vbox), sw, TRUE, TRUE, 0);
-	gedit_panel_add_item (panel, vbox, _("Collaboration"), NULL);
+
+	/* Create collaboration icon */
+	icon_path = g_build_filename (helper->priv->data_dir, "icons", "people.svg", NULL);
+	gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, &width, &height);
+	icon = gdk_pixbuf_new_from_file_at_size (icon_path, width, height, NULL);
+
+	image = gtk_image_new_from_pixbuf (icon);
+
+	if (icon != NULL)
+	{
+		g_object_unref (icon);
+	}
+
+	g_free (icon_path);
+
+	gtk_widget_show (image);
+	gedit_panel_add_item (panel, vbox, _("Collaboration"), image);
 
 	update_sensitivity (helper);
 }
@@ -363,7 +643,12 @@ build_ui (GeditCollaborationWindowHelper *helper)
 static void
 gedit_collaboration_window_helper_constructed (GObject *object)
 {
-	build_ui (GEDIT_COLLABORATION_WINDOW_HELPER (object));
+	GeditCollaborationWindowHelper *helper;
+
+	helper = GEDIT_COLLABORATION_WINDOW_HELPER (object);
+	helper->priv->manager = gedit_collaboration_manager_new (helper->priv->window);
+
+	build_ui (helper);
 }
 
 static void
@@ -372,6 +657,8 @@ gedit_collaboration_window_helper_class_init (GeditCollaborationWindowHelperClas
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
 	
 	object_class->finalize = gedit_collaboration_window_helper_finalize;
+	object_class->dispose = gedit_collaboration_window_helper_dispose;
+
 	object_class->set_property = gedit_collaboration_window_helper_set_property;
 	object_class->get_property = gedit_collaboration_window_helper_get_property;
 	object_class->constructed = gedit_collaboration_window_helper_constructed;

@@ -1,3 +1,5 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
+
 #ifndef __GEDIT_COLLABORATION_PLUGIN_H__
 #define __GEDIT_COLLABORATION_PLUGIN_H__
 
@@ -15,12 +17,12 @@ G_BEGIN_DECLS
 
 typedef struct _GeditCollaborationPlugin		GeditCollaborationPlugin;
 typedef struct _GeditCollaborationPluginClass	GeditCollaborationPluginClass;
-/*typedef struct _GeditCollaborationPluginPrivate	GeditCollaborationPluginPrivate;*/
+typedef struct _GeditCollaborationPluginPrivate	GeditCollaborationPluginPrivate;
 
 struct _GeditCollaborationPlugin {
 	GeditPlugin parent;
 	
-	/*GeditCollaborationPluginPrivate *priv;*/
+	GeditCollaborationPluginPrivate *priv;
 };
 
 struct _GeditCollaborationPluginClass {

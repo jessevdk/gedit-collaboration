@@ -1,3 +1,5 @@
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
+
 #ifndef __GEDIT_COLLABORATION_WINDOW_HELPER_H__
 #define __GEDIT_COLLABORATION_WINDOW_HELPER_H__
 

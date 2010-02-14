@@ -1,0 +1,78 @@
+<?xml version="1.0"?>
+<interface>
+  <requires lib="gtk+" version="2.16"/>
+  <!-- interface-naming-policy project-wide -->
+  <object class="GtkUIManager" id="uimanager">
+    <child>
+      <object class="GtkActionGroup" id="action_group_connected">
+        <child>
+          <object class="GtkAction" id="FileNew">
+            <property name="stock-id">gtk-new</property>
+            <property name="label" translatable="yes">_New File</property>
+            <property name="tooltip" translatable="yes">Create a new file</property>
+            <signal name="activate" handler="on_action_file_new"/>
+          </object>
+        </child>
+        <child>
+          <object class="GtkAction" id="FolderNew">
+            <property name="icon-name">folder-new</property>
+            <property name="label" translatable="yes">_New Folder</property>
+            <property name="tooltip" translatable="yes">Create a empty folder</property>
+            <signal name="activate" handler="on_action_folder_new"/>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkActionGroup" id="action_group_actions">
+        <child>
+          <object class="GtkAction" id="ItemDelete">
+            <property name="stock-id">gtk-delete</property>
+            <property name="label" translatable="yes">_Delete</property>
+            <property name="tooltip" translatable="yes">Delete selected item</property>
+            <signal name="activate" handler="on_action_item_delete"/>
+          </object>
+        </child>
+        <child>
+          <object class="GtkAction" id="SessionDisconnect">
+            <property name="stock-id">gtk-disconnect</property>
+            <property name="tooltip" translatable="yes">Disconnect session</property>
+            <signal name="activate" handler="on_action_session_disconnect"/>
+          </object>
+        </child>
+        <child>
+          <object class="GtkAction" id="BookmarkEdit">
+            <property name="stock-id">gtk-properties</property>
+            <property name="label" translatable="yes">_Edit Bookmark</property>
+            <property name="tooltip" translatable="yes">Edit selected bookmark</property>
+            <signal name="activate" handler="on_action_bookmark_edit"/>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkActionGroup" id="action_group_always_sensitive">
+        <child>
+          <object class="GtkAction" id="BookmarkNew">
+            <property name="icon-name">bookmark-new</property>
+            <property name="label" translatable="yes">New _Bookmark</property>
+            <property name="tooltip" translatable="yes">Create new bookmark</property>
+            <signal name="activate" handler="on_action_bookmark_new"/>
+          </object>
+        </child>
+      </object>
+    </child>
+    <ui>
+      <toolbar name="ToolBar">
+        <toolitem action="FileNew"/>
+        <toolitem action="FolderNew"/>
+        <separator/>
+        <toolitem action="ItemDelete"/>
+        <separator/>
+        <toolitem action="BookmarkNew" />
+        <toolitem action="BookmarkEdit" />
+      </toolbar>
+    </ui>
+  </object>
+</interface>
+<!-- vi:ex:ts=2:et -->
