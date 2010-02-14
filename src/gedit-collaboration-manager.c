@@ -647,6 +647,13 @@ on_synchronization_complete (InfSession       *session,
 }
 
 static void
+on_progress_response (Subscription *subscription)
+{
+	gedit_window_close_tab (subscription->manager->priv->window,
+	                        subscription->tab);
+}
+
+static void
 on_synchronization_progress (InfSession       *session,
                              InfXmlConnection *connection,
                              gdouble           progress,
@@ -669,6 +676,11 @@ on_synchronization_progress (InfSession       *session,
 		subscription->progress_area =
 			gedit_collaboration_document_message_new_progress (_("Synchronizing document"),
 			                                                   _("Please wait while the shared document is being synchronized"));
+
+		g_signal_connect_swapped (subscription->progress_area,
+		                          "response",
+		                          G_CALLBACK (on_progress_response),
+		                          subscription);
 
 		gtk_widget_show (subscription->progress_area);
 		gedit_tab_set_info_bar (subscription->tab,
