@@ -10,6 +10,15 @@
 
 G_BEGIN_DECLS
 
+#define GEDIT_COLLABORATION_ERROR gedit_collaboration_error_quark ()
+
+enum
+{
+	GEDIT_COLLABORATION_ERROR_SESSION_CLOSED
+};
+
+GQuark gedit_collaboration_error_quark (void);
+
 void gedit_collaboration_get_sv (GtkWidget *widget,
                                  gdouble   *sat,
                                  gdouble   *val);

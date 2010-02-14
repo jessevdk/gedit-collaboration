@@ -3,6 +3,19 @@
 #include "gedit-collaboration.h"
 #include <math.h>
 
+GQuark
+gedit_collaboration_error_quark (void)
+{
+	static GQuark quark = 0;
+
+	if (G_UNLIKELY (quark == 0))
+	{
+		quark = g_quark_from_string ("gedit_collaboration_error");
+	}
+
+	return quark;
+}
+
 void
 gedit_collaboration_get_sv (GtkWidget *widget,
                             gdouble   *sat,
