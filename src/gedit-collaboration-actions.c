@@ -78,6 +78,7 @@ item_new_dialog (GeditCollaborationWindowHelper *helper,
 	GtkWidget *dialog;
 	ItemNew *item;
 	GtkTreeIter iter;
+	GtkTreeIter selected;
 	InfcBrowser *browser;
 	InfcBrowserIter *node;
 	GtkWidget *label;
@@ -85,10 +86,20 @@ item_new_dialog (GeditCollaborationWindowHelper *helper,
 	GtkWidget *hbox;
 
 	if (!inf_gtk_browser_view_get_selected (INF_GTK_BROWSER_VIEW (helper->priv->browser_view),
-	                                        &iter))
+	                                        &selected))
 	{
 		return;
 	}
+
+	gtk_tree_model_sort_convert_iter_to_child_iter (
+		GTK_TREE_MODEL_SORT (
+			inf_gtk_browser_view_get_model (
+				INF_GTK_BROWSER_VIEW (helper->priv->browser_view)
+			)
+		),
+		&iter,
+		&selected
+	);
 
 	dialog = gtk_dialog_new_with_buttons (newfile ? _("New File") : _("New Folder"),
 	                                      GTK_WINDOW (helper->priv->window),
@@ -138,6 +149,8 @@ item_new_dialog (GeditCollaborationWindowHelper *helper,
 	item->newfile = newfile;
 	item->entry = GTK_ENTRY (entry);
 
+	infc_browser_iter_free (node);
+
 	g_signal_connect (dialog,
 	                  "response",
 	                  G_CALLBACK (on_item_new_response),
@@ -165,14 +178,25 @@ on_action_session_disconnect (GtkAction                      *action,
                               GeditCollaborationWindowHelper *helper)
 {
 	GtkTreeIter iter;
+	GtkTreeIter selected;
 	InfcBrowser *browser;
 	InfXmlConnection *connection;
 
 	if (!inf_gtk_browser_view_get_selected (INF_GTK_BROWSER_VIEW (helper->priv->browser_view),
-	                                        &iter))
+	                                        &selected))
 	{
 		return;
 	}
+
+	gtk_tree_model_sort_convert_iter_to_child_iter (
+		GTK_TREE_MODEL_SORT (
+			inf_gtk_browser_view_get_model (
+				INF_GTK_BROWSER_VIEW (helper->priv->browser_view)
+			)
+		),
+		&iter,
+		&selected
+	);
 
 	gtk_tree_model_get (GTK_TREE_MODEL (helper->priv->browser_store),
 	                    &iter,
@@ -199,15 +223,26 @@ on_action_item_delete (GtkAction                      *action,
                        GeditCollaborationWindowHelper *helper)
 {
 	GtkTreeIter iter;
+	GtkTreeIter selected;
 	InfcBrowser *browser;
 	InfcBrowserIter *browser_iter;
 	InfcBrowserIter parent;
 
 	if (!inf_gtk_browser_view_get_selected (INF_GTK_BROWSER_VIEW (helper->priv->browser_view),
-	                                        &iter))
+	                                        &selected))
 	{
 		return;
 	}
+
+	gtk_tree_model_sort_convert_iter_to_child_iter (
+		GTK_TREE_MODEL_SORT (
+			inf_gtk_browser_view_get_model (
+				INF_GTK_BROWSER_VIEW (helper->priv->browser_view)
+			)
+		),
+		&iter,
+		&selected
+	);
 
 	gtk_tree_model_get (GTK_TREE_MODEL (helper->priv->browser_store),
 	                    &iter,
@@ -247,6 +282,11 @@ on_action_item_delete (GtkAction                      *action,
 	}
 
 	g_object_unref (browser);
+
+	if (browser_iter)
+	{
+		infc_browser_iter_free (browser_iter);
+	}
 }
 
 static void
@@ -284,12 +324,23 @@ on_action_bookmark_edit (GtkAction                      *action,
 	InfcBrowser *browser;
 	GeditCollaborationBookmark *bookmark;
 	InfXmlConnection *connection;
+	GtkTreeIter selected;
 
 	if (!inf_gtk_browser_view_get_selected (INF_GTK_BROWSER_VIEW (helper->priv->browser_view),
-	                                        &iter))
+	                                        &selected))
 	{
 		return;
 	}
+
+	gtk_tree_model_sort_convert_iter_to_child_iter (
+		GTK_TREE_MODEL_SORT (
+			inf_gtk_browser_view_get_model (
+				INF_GTK_BROWSER_VIEW (helper->priv->browser_view)
+			)
+		),
+		&iter,
+		&selected
+	);
 
 	gtk_tree_model_get (GTK_TREE_MODEL (helper->priv->browser_store),
 	                    &iter,
