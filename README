@@ -2,9 +2,9 @@ gedit collaboration plugin provides support for collaborative editing in gedit.
 It uses libinfinity 0.4 and should work with any infinote 0.4 server.
 
 The plugin should compile for gedit stable (2.28), but a few features will
-not be available. At the moment, you will need the 'collaboration' branch
-from http://github.com/jessevdk/gedit to enable all its features (nicer
-error reporting and showing the file name in the tab label).
+not be available. If you want those features, you will need
+gtk+-2.18 and the latest gedit from git (nicer error reporting and showing
+the file name in the tab label).
 
 In addition, you will need to compile and install libinfinity from the
 libinfinity-0.4 branch (git://git.0x539.de/git/infinote.git) because it
