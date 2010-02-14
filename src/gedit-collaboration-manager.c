@@ -585,11 +585,41 @@ request_join (Subscription *subscription,
 	                        subscription);
 }
 
+#ifndef GEDIT_STABLE
+static gchar *
+guess_content_type (Subscription *subscription)
+{
+	GtkTextIter start;
+	GtkTextIter end;
+	gchar *text;
+	gchar *content_type;
+	GeditDocument *doc;
+
+	doc = gedit_tab_get_document (subscription->tab);
+
+	gtk_text_buffer_get_start_iter (GTK_TEXT_BUFFER (doc), &start);
+
+	end = start;
+	gtk_text_iter_forward_chars (&end, 100);
+
+	text = gtk_text_iter_get_text (&start, &end);
+	content_type = g_content_type_guess (gedit_document_get_short_name_for_display (doc),
+	                                     (const guchar *)text,
+	                                     strlen (text),
+	                                     NULL);
+
+	g_free (text);
+	return content_type;
+}
+#endif
+
 static void
 on_synchronization_complete (InfSession       *session,
                              InfXmlConnection *connection,
                              Subscription     *subscription)
 {
+	gchar *content_type;
+
 	g_signal_handler_disconnect (session,
 	                             subscription->signal_handlers[SYNCHRONIZATION_COMPLETE]);
 	subscription->signal_handlers[SYNCHRONIZATION_COMPLETE] = 0;
@@ -600,6 +630,12 @@ on_synchronization_complete (InfSession       *session,
 
 #ifndef GEDIT_STABLE
 	gedit_tab_set_message_area (subscription->tab, NULL);
+
+	/* Now guess with the content too */
+	content_type = guess_content_type (subscription);
+	gedit_document_set_content_type (gedit_tab_get_document (subscription->tab),
+	                                 content_type);
+	g_free (content_type);
 #endif
 
 	subscription->progress_area = NULL;
@@ -673,6 +709,8 @@ on_subscribe_request_finished (InfcNodeRequest *request,
 	GeditCollaborationManager *manager = subscription->manager;
 	GeditView *view;
 	GeditDocument *doc;
+	gchar *content_type;
+	const gchar *name;
 
 	proxy = infc_browser_iter_get_session (subscription->browser, iter);
 	session = infc_session_proxy_get_session (proxy);
@@ -688,15 +726,22 @@ on_subscribe_request_finished (InfcNodeRequest *request,
 	view = gedit_tab_get_view (subscription->tab);
 	doc = gedit_tab_get_document (subscription->tab);
 
+	name = infc_browser_iter_get_name (subscription->browser, &subscription->iter);
+
+#ifndef GEDIT_STABLE
+	/* First guess the content type just from the name */
+	content_type = g_content_type_guess (name, NULL, 0, NULL);
+	gedit_document_set_content_type (doc, content_type);
+	g_free (content_type);
+#endif
+
 	gtk_source_buffer_begin_not_undoable_action (GTK_SOURCE_BUFFER (doc));
 	gtk_text_buffer_begin_user_action (GTK_TEXT_BUFFER (doc));
 
 	subscription->loading = TRUE;
 
 #ifndef GEDIT_STABLE
-	gedit_document_set_short_name_for_display (doc,
-	                                           infc_browser_iter_get_name (subscription->browser,
-	                                                                       &subscription->iter));
+	gedit_document_set_short_name_for_display (doc, name);
 #endif
 
 	subscription->signal_handlers[STYLE_SET] =
