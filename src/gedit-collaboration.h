@@ -6,7 +6,6 @@
 #include <gtk/gtk.h>
 
 #define DEFAULT_INFINOTE_PORT 6523
-#define DEFAULT_USER_HUE 0.6
 
 G_BEGIN_DECLS
 
