@@ -329,6 +329,8 @@ show_password_dialog (GeditCollaborationWindowHelper *helper,
 	                      text);
 	g_free (text);
 
+	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
+
 	/* Need to do this modal/sync for now */
 	if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_OK)
 	{
