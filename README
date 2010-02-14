@@ -13,6 +13,11 @@ contains some bugfixes and API additions that are needed for the plugin.
 Once installed and activated, you can use the side pane to view remote
 servers with shared documents.
 
-NOTE: The following bugs are known
+NOTE:
+	* infinote 0.4 is not compatible with infinoted 0.3 or
+	  sobby. You will need an infinoted 0.4 server to share
+	  documents.
+
+BUGS: The following bugs are known
 
 	* Does not support passwords yet
