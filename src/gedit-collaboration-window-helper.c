@@ -215,6 +215,16 @@ update_sensitivity (GeditCollaborationWindowHelper *helper)
 	                          has_selection &&
 	                          discovery == NULL &&
 	                          toplevel);
+
+	if (browser)
+	{
+		g_object_unref (browser);
+	}
+
+	if (discovery)
+	{
+		g_object_unref (discovery);
+	}
 }
 
 static void
@@ -463,6 +473,11 @@ on_browser_activate (InfGtkBrowserView              *view,
 
 	if (browser == NULL)
 	{
+		if (discovery)
+		{
+			g_object_unref (discovery);
+		}
+
 		return;
 	}
 
@@ -475,6 +490,13 @@ on_browser_activate (InfGtkBrowserView              *view,
 	if (browser_iter == NULL ||
 	    infc_browser_iter_is_subdirectory (browser, browser_iter))
 	{
+		g_object_unref (browser);
+
+		if (discovery)
+		{
+			g_object_unref (discovery);
+		}
+
 		return;
 	}
 
@@ -496,6 +518,11 @@ on_browser_activate (InfGtkBrowserView              *view,
 	                                       user,
 	                                       browser,
 	                                       browser_iter);
+
+	if (discovery)
+	{
+		g_object_unref (discovery);
+	}
 }
 
 static void

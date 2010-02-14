@@ -66,6 +66,8 @@ on_item_new_response (GtkDialog *dialog,
 
 	g_free (name);
 
+	g_object_unref (item->browser);
+
 	g_slice_free (ItemNew, item);
 }
 
@@ -188,6 +190,8 @@ on_action_session_disconnect (GtkAction                      *action,
 
 	inf_gtk_browser_store_clear_connection_error (helper->priv->browser_store,
 	                                              connection);
+
+	g_object_unref (browser);
 }
 
 void
@@ -241,6 +245,8 @@ on_action_item_delete (GtkAction                      *action,
 		/* Remove the iter itself */
 		infc_browser_remove_node (browser, browser_iter);
 	}
+
+	g_object_unref (browser);
 }
 
 static void
@@ -301,4 +307,6 @@ on_action_bookmark_edit (GtkAction                      *action,
 	                              BOOKMARK_DATA_KEY);
 
 	create_bookmark_dialog (helper, bookmark);
+
+	g_object_unref (browser);
 }

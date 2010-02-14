@@ -244,6 +244,11 @@ subscription_free (Subscription *subscription)
 		g_timer_destroy (subscription->progress_timer);
 	}
 
+	if (subscription->browser != NULL)
+	{
+		g_object_unref (subscription->browser);
+	}
+
 	g_slice_free (Subscription, subscription);
 }
 
@@ -754,7 +759,7 @@ gedit_collaboration_manager_subscribe (GeditCollaborationManager *manager,
 	request = infc_browser_iter_subscribe_session (browser, iter);
 
 	subscription = g_slice_new0 (Subscription);
-	subscription->browser = browser;
+	subscription->browser = g_object_ref (browser);
 	subscription->iter = *iter;
 	subscription->user = g_object_ref (user);
 	subscription->manager = manager;
