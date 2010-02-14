@@ -602,6 +602,11 @@ on_browser_activate (InfGtkBrowserView              *view,
 	{
 		g_object_unref (browser);
 
+		if (browser_iter)
+		{
+			infc_browser_iter_free (browser_iter);
+		}
+
 		if (discovery)
 		{
 			g_object_unref (discovery);
@@ -632,6 +637,11 @@ on_browser_activate (InfGtkBrowserView              *view,
 	if (discovery)
 	{
 		g_object_unref (discovery);
+	}
+
+	if (browser_iter)
+	{
+		infc_browser_iter_free (browser_iter);
 	}
 }
 
