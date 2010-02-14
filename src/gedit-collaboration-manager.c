@@ -55,6 +55,8 @@ typedef struct
 	GTimer *progress_timer;
 	gdouble progress_start;
 	GtkWidget *progress_area;
+
+	gboolean loading;
 } Subscription;
 
 /* Properties */
@@ -232,6 +234,16 @@ subscription_free (Subscription *subscription)
 
 		g_signal_handler_disconnect (gedit_tab_get_view (subscription->tab),
 		                             subscription->signal_handlers[VIEW_DESTROYED]);
+
+		if (subscription->loading)
+		{
+			GeditDocument *doc;
+
+			doc = gedit_tab_get_document (subscription->tab);
+
+			gtk_text_buffer_end_user_action (GTK_TEXT_BUFFER (doc));
+			gtk_source_buffer_end_not_undoable_action (GTK_SOURCE_BUFFER (doc));
+		}
 	}
 
 	if (subscription->user != NULL)
@@ -359,6 +371,7 @@ on_join_user_request_finished (InfcUserRequest *request,
 	InfSession *session;
 	InfBuffer *buffer;
 	GeditView *view;
+	GeditDocument *doc;
 
 	session = infc_session_proxy_get_session (subscription->proxy);
 	buffer = inf_session_get_buffer (session);
@@ -368,7 +381,13 @@ on_join_user_request_finished (InfcUserRequest *request,
 	                                     INF_TEXT_USER (user));
 
 	view = gedit_tab_get_view (subscription->tab);
-	inf_buffer_set_modified (buffer, FALSE);
+	doc = gedit_tab_get_document (subscription->tab);
+
+	gtk_text_buffer_begin_user_action (GTK_TEXT_BUFFER (doc));
+	gtk_source_buffer_end_not_undoable_action (GTK_SOURCE_BUFFER (doc));
+	subscription->loading = FALSE;
+
+	gtk_text_buffer_set_modified (GTK_TEXT_BUFFER (doc), FALSE);
 
 	gtk_text_view_set_editable (GTK_TEXT_VIEW (view), TRUE);
 	gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (view)),
@@ -597,11 +616,6 @@ on_synchronization_progress (InfSession       *session,
                              gdouble           progress,
                              Subscription     *subscription)
 {
-	InfBuffer *buffer;
-
-	buffer = inf_session_get_buffer (session);
-	inf_buffer_set_modified (buffer, FALSE);
-
 #ifndef GEDIT_STABLE
 	if (subscription->progress_area != NULL)
 	{
@@ -613,11 +627,12 @@ on_synchronization_progress (InfSession       *session,
 		msg = GEDIT_COLLABORATION_DOCUMENT_MESSAGE (subscription->progress_area);
 		gedit_collaboration_document_message_update (msg, fraction);
 	}
-	else if (g_timer_elapsed (subscription->progress_timer, NULL) > 0.5 && progress < 0.25)
+	else if (g_timer_elapsed (subscription->progress_timer, NULL) > 0.5 && progress < 0.5)
 	{
 		subscription->progress_start = progress;
 		subscription->progress_area =
-			gedit_collaboration_document_message_new_progress (_("Synchronizing document"));
+			gedit_collaboration_document_message_new_progress (_("Synchronizing document"),
+			                                                   _("Please wait while the shared document is being synchronized"));
 
 		gtk_widget_show (subscription->progress_area);
 		gedit_tab_set_message_area (subscription->tab,
@@ -672,6 +687,11 @@ on_subscribe_request_finished (InfcNodeRequest *request,
 
 	view = gedit_tab_get_view (subscription->tab);
 	doc = gedit_tab_get_document (subscription->tab);
+
+	gtk_source_buffer_begin_not_undoable_action (GTK_SOURCE_BUFFER (doc));
+	gtk_text_buffer_begin_user_action (GTK_TEXT_BUFFER (doc));
+
+	subscription->loading = TRUE;
 
 #ifndef GEDIT_STABLE
 	gedit_document_set_short_name_for_display (doc,
