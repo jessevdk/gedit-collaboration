@@ -17,7 +17,3 @@ NOTE:
 	* infinote 0.4 is not compatible with infinoted 0.3 or
 	  sobby. You will need an infinoted 0.4 server to share
 	  documents.
-
-BUGS: The following bugs are known
-
-	* Does not support passwords yet
