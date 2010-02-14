@@ -4,9 +4,11 @@
 plugindir = $(GEDIT_PLUGINS_LIBS_DIR)
 
 INCLUDES = \
-	-I$(top_srcdir) 				\
-	$(GEDIT_CFLAGS) 				\
-	$(WARN_CFLAGS)
+	-I$(top_srcdir) 						\
+	$(GEDIT_CFLAGS) 						\
+	$(WARN_CFLAGS)							\
+	-DGEDIT_PLUGINS_LIBS_DIR="\"$(GEDIT_PLUGINS_LIBS_DIR)\"" 		\
+	-DGEDIT_PLUGINS_DATA_DIR="\"$(GEDIT_PLUGINS_DATA_DIR)\""
 
 plugin_LTLIBRARIES = libcollaboration.la
 

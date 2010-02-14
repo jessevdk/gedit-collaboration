@@ -5,6 +5,7 @@
 #include "gedit-collaboration-bookmark-dialog.h"
 
 #include "gedit-collaboration-window-helper-private.h"
+#include "gedit-collaboration.h"
 
 #define XML_UI_FILE "gedit-collaboration-window-helper.ui"
 #define DIALOG_BUILDER_KEY "GeditCollaborationBookmarkDialogKey"
@@ -653,27 +654,17 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	gchar *icon_path;
 	gint width;
 	gint height;
-	gchar *ui_file;
 	GtkBuilder *builder;
 	GError *error = NULL;
 
-	ui_file = g_build_filename (helper->priv->data_dir, XML_UI_FILE, NULL);
-	builder = gtk_builder_new ();
+	builder = gedit_collaboration_create_builder (helper->priv->data_dir,
+	                                              XML_UI_FILE);
 
-	if (!gtk_builder_add_from_file (builder, ui_file, &error))
+	if (!builder)
 	{
-		g_warning ("Error in adding ui from file %s: %s",
-		           XML_UI_FILE,
-		           error->message);
-
-		g_error_free (error);
-		g_free (ui_file);
-		g_object_unref (builder);
-
 		return;
 	}
 
-	g_free (ui_file);
 	helper->priv->builder = builder;
 	helper->priv->uimanager = GTK_UI_MANAGER (gtk_builder_get_object (builder, "uimanager"));
 

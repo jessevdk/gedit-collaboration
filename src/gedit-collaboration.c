@@ -65,3 +65,50 @@ gedit_collaboration_color_to_hue (GdkColor *color)
 	gtk_rgb_to_hsv (r, g, b, &h, &s, &v);
 	return h;
 }
+
+static GtkBuilder *
+try_create_builder (const gchar  *data_dir,
+                    const gchar  *filename,
+                    GError      **error)
+{
+	GtkBuilder *builder;
+	gchar *path;
+
+	builder = gtk_builder_new ();
+
+	path = g_build_filename (data_dir, filename, NULL);
+
+	if (!gtk_builder_add_from_file (builder, path, error))
+	{
+		g_object_unref (builder);
+		builder = NULL;
+	}
+
+	g_free (path);
+	return builder;
+}
+
+GtkBuilder *
+gedit_collaboration_create_builder (const gchar *data_dir,
+                                    const gchar *filename)
+{
+	GtkBuilder *builder;
+	GError *error = NULL;
+
+	builder = try_create_builder (data_dir, filename, NULL);
+
+	if (builder == NULL)
+	{
+		builder = try_create_builder (GEDIT_PLUGINS_DATA_DIR "/collaboration",
+		                              filename,
+		                              &error);
+	}
+
+	if (builder == NULL)
+	{
+		g_warning ("Could not construct builder for file %s", filename);
+		g_error_free (error);
+	}
+
+	return builder;
+}

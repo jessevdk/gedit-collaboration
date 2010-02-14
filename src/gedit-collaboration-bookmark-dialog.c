@@ -193,26 +193,16 @@ gedit_collaboration_bookmark_dialog_init (GeditCollaborationBookmarkDialog *self
 static GeditCollaborationBookmarkDialog *
 create_dialog (const gchar *data_dir)
 {
-	gchar *filename;
 	GtkBuilder *builder;
 
-	filename = g_build_filename (data_dir,
-	                             "gedit-collaboration-bookmark-dialog.ui",
-	                             NULL);
+	builder = gedit_collaboration_create_builder (data_dir,
+	                                              "gedit-collaboration-bookmark-dialog.ui");
 
-	builder = gtk_builder_new ();
-
-	if (gtk_builder_add_from_file (builder, filename, NULL) == 0)
+	if (!builder)
 	{
-		g_warning ("Could not open ui file `%s' for bookmark dialog", filename);
-
-		g_free (filename);
-		g_object_unref (builder);
-
 		return NULL;
 	}
 
-	g_free (filename);
 	return GEDIT_COLLABORATION_BOOKMARK_DIALOG (gtk_builder_get_object (builder, "dialog_bookmark"));
 }
 

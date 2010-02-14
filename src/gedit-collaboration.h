@@ -25,6 +25,9 @@ void gedit_collaboration_get_sv (GtkWidget *widget,
 void gedit_collaboration_hue_to_color (gdouble hue, GdkColor *color);
 gdouble gedit_collaboration_color_to_hue (GdkColor *color);
 
+GtkBuilder *gedit_collaboration_create_builder (const gchar *data_dir,
+                                                const gchar *filename);
+
 G_END_DECLS
 
 #endif /* __GEDIT_COLLABORATION_H__ */

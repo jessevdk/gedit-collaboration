@@ -30,6 +30,7 @@
 #include "gedit-collaboration-manager.h"
 #include "gedit-collaboration-color-button.h"
 #include "gedit-collaboration-document-message.h"
+#include "gedit-collaboration.h"
 
 #include <libinfinity/common/inf-init.h>
 
@@ -123,22 +124,13 @@ on_dialog_configuration_response (GtkWidget                *widget,
 static void
 create_configuration_dialog (GeditCollaborationPlugin *plugin)
 {
-	GtkBuilder *builder = gtk_builder_new ();
-	GError *error = NULL;
-	gchar *filename;
+	GtkBuilder *builder;
 
-	filename = g_build_filename (gedit_plugin_get_data_dir (GEDIT_PLUGIN (plugin)),
-	                             "gedit-collaboration-configuration.ui",
-	                             NULL);
+	builder = gedit_collaboration_create_builder (gedit_plugin_get_data_dir (GEDIT_PLUGIN (plugin)),
+	                                              "gedit-collaboration-configuration.ui");
 
-	if (!gtk_builder_add_from_file (builder, filename, &error))
+	if (!builder)
 	{
-		g_warning ("Could not load collaboration configuration dialog from file: %s", filename);
-
-		g_free (filename);
-		g_object_unref (builder);
-
-		g_error_free (error);
 		return;
 	}
 
