@@ -7,6 +7,8 @@
 #include "gedit-collaboration-window-helper-private.h"
 #include "gedit-collaboration.h"
 
+#include <libinfgtk/inf-gtk-browser-model-sort.h>
+
 #define XML_UI_FILE "gedit-collaboration-window-helper.ui"
 #define DIALOG_BUILDER_KEY "GeditCollaborationBookmarkDialogKey"
 
@@ -163,6 +165,7 @@ update_sensitivity (GeditCollaborationWindowHelper *helper)
 {
 	gboolean has_selection;
 	GtkTreeIter selected;
+	GtkTreeIter sorted;
 	InfcBrowser *browser = NULL;
 	InfDiscovery *discovery = NULL;
 	GtkTreeModel *model;
@@ -174,7 +177,20 @@ update_sensitivity (GeditCollaborationWindowHelper *helper)
 
 	has_selection =
 		inf_gtk_browser_view_get_selected (INF_GTK_BROWSER_VIEW (helper->priv->browser_view),
-		                                   &selected);
+		                                   &sorted);
+
+	if (has_selection)
+	{
+		gtk_tree_model_sort_convert_iter_to_child_iter (
+			GTK_TREE_MODEL_SORT (
+				inf_gtk_browser_view_get_model (
+					INF_GTK_BROWSER_VIEW (helper->priv->browser_view)
+				)
+			),
+			&selected,
+			&sorted
+		);
+	}
 
 	if (has_selection)
 	{
@@ -549,9 +565,16 @@ on_browser_activate (InfGtkBrowserView              *view,
 	InfcBrowserIter *browser_iter;
 	InfDiscovery *discovery;
 	GeditCollaborationUser *user;
+	GtkTreeIter selected;
+
+	gtk_tree_model_sort_convert_iter_to_child_iter (
+		GTK_TREE_MODEL_SORT (inf_gtk_browser_view_get_model (view)),
+		&selected,
+		iter
+	);
 
 	gtk_tree_model_get (GTK_TREE_MODEL (helper->priv->browser_store),
-	                    iter,
+	                    &selected,
 	                    INF_GTK_BROWSER_MODEL_COL_BROWSER,
 	                    &browser,
 	                    INF_GTK_BROWSER_MODEL_COL_DISCOVERY,
@@ -569,7 +592,7 @@ on_browser_activate (InfGtkBrowserView              *view,
 	}
 
 	gtk_tree_model_get (GTK_TREE_MODEL (helper->priv->browser_store),
-	                    iter,
+	                    &selected,
 	                    INF_GTK_BROWSER_MODEL_COL_NODE,
 	                    &browser_iter,
 	                    -1);
@@ -637,6 +660,91 @@ init_infinity_discovery (GeditCollaborationWindowHelper *helper,
 }
 #endif
 
+/* Copied from gobby: code/core/browser.cpp */
+static gint
+compare_func (GtkTreeModel *model,
+              GtkTreeIter  *first,
+              GtkTreeIter  *second,
+              gpointer      user_data)
+{
+	gint result;
+	InfcBrowser *br_one;
+	InfcBrowser *br_two;
+	InfcBrowserIter *bri_one;
+	InfcBrowserIter *bri_two;
+	GtkTreeIter parent;
+
+	result = 0;
+
+	if (gtk_tree_model_iter_parent (model, &parent, first))
+	{
+		g_assert (gtk_tree_model_iter_parent (model, &parent, second));
+
+		gtk_tree_model_get (model,
+		                   first,
+		                   INF_GTK_BROWSER_MODEL_COL_BROWSER,
+		                   &br_one,
+		                   INF_GTK_BROWSER_MODEL_COL_NODE,
+		                   &bri_one,
+		                   -1);
+
+		gtk_tree_model_get (model,
+		                    second,
+		                    INF_GTK_BROWSER_MODEL_COL_BROWSER,
+		                    &br_two,
+		                    INF_GTK_BROWSER_MODEL_COL_NODE,
+		                    &bri_two,
+		                    -1);
+
+		if (infc_browser_iter_is_subdirectory (br_one, bri_one) &&
+		   !infc_browser_iter_is_subdirectory (br_two, bri_two))
+		{
+			result = -1;
+		}
+		else if (!infc_browser_iter_is_subdirectory(br_one, bri_one) &&
+		          infc_browser_iter_is_subdirectory(br_two, bri_two))
+		{
+			result = 1;
+		}
+
+		g_object_unref (br_one);
+		g_object_unref (br_two);
+
+		infc_browser_iter_free (bri_one);
+		infc_browser_iter_free (bri_two);
+	}
+
+	if (!result)
+	{
+		gchar* name_one;
+		gchar* name_two;
+
+		gtk_tree_model_get (model,
+		                    first,
+		                    INF_GTK_BROWSER_MODEL_COL_NAME,
+		                    &name_one,
+		                    -1);
+
+		gtk_tree_model_get (model,
+		                    second,
+		                    INF_GTK_BROWSER_MODEL_COL_NAME,
+		                    &name_two,
+		                    -1);
+
+		gchar* one = g_utf8_casefold (name_one, -1);
+		gchar* two = g_utf8_casefold (name_two, -1);
+
+		result = g_utf8_collate (one, two);
+
+		g_free (name_one);
+		g_free (name_two);
+		g_free (one);
+		g_free (two);
+	}
+
+	return result;
+}
+
 static void
 init_infinity (GeditCollaborationWindowHelper *helper)
 {
@@ -644,6 +752,7 @@ init_infinity (GeditCollaborationWindowHelper *helper)
 	InfCommunicationManager *communication_manager;
 	InfXmppManager *xmpp_manager;
 	InfCertificateCredentials *certificate_credentials;
+	InfGtkBrowserModel *model_sort;
 
 	io = inf_gtk_io_new ();
 	communication_manager = inf_communication_manager_new ();
@@ -655,8 +764,19 @@ init_infinity (GeditCollaborationWindowHelper *helper)
 	helper->priv->browser_store = inf_gtk_browser_store_new (INF_IO (io),
 	                                                         communication_manager);
 
+	model_sort = INF_GTK_BROWSER_MODEL (
+		inf_gtk_browser_model_sort_new (
+			INF_GTK_BROWSER_MODEL (helper->priv->browser_store)
+		)
+	);
+
+	gtk_tree_sortable_set_default_sort_func (GTK_TREE_SORTABLE (model_sort),
+	                                         compare_func,
+	                                         NULL,
+	                                         NULL);
+
 	helper->priv->browser_view =
-		inf_gtk_browser_view_new_with_model (INF_GTK_BROWSER_MODEL (helper->priv->browser_store));
+		inf_gtk_browser_view_new_with_model (model_sort);
 
 	gtk_widget_show (helper->priv->browser_view);
 
