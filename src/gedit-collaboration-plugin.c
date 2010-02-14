@@ -29,6 +29,7 @@
 #include "gedit-collaboration-bookmark-dialog.h"
 #include "gedit-collaboration-manager.h"
 #include "gedit-collaboration-color-button.h"
+#include "gedit-collaboration-document-message.h"
 
 #include <libinfinity/common/inf-init.h>
 
@@ -50,6 +51,7 @@ GEDIT_PLUGIN_REGISTER_TYPE_WITH_CODE (GeditCollaborationPlugin, gedit_collaborat
 	gedit_collaboration_bookmarks_register_type (type_module); \
 	gedit_collaboration_bookmark_dialog_register_type (type_module); \
 	gedit_collaboration_color_button_register_type (type_module); \
+	gedit_collaboration_document_message_register_type (type_module); \
 )
 
 static void
@@ -69,8 +71,8 @@ plugin_activate_impl (GeditPlugin *plugin,
 
 	g_object_set_data_full (G_OBJECT (window),
 	                        WINDOW_DATA_KEY,
-	                        (GDestroyNotify)g_object_unref,
-	                        NULL);
+	                        helper,
+	                        (GDestroyNotify)g_object_unref);
 }
 
 static void
@@ -176,6 +178,20 @@ plugin_create_configure_dialog_impl (GeditPlugin *plugin)
 }
 
 static void
+plugin_update_ui_impl (GeditPlugin *plugin,
+                       GeditWindow *window)
+{
+	GeditCollaborationWindowHelper *helper;
+
+	helper = g_object_get_data (G_OBJECT (window), WINDOW_DATA_KEY);
+
+	if (helper)
+	{
+		gedit_collaboration_window_helper_update_ui (helper);
+	}
+}
+
+static void
 gedit_collaboration_plugin_class_init (GeditCollaborationPluginClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
@@ -187,6 +203,7 @@ gedit_collaboration_plugin_class_init (GeditCollaborationPluginClass *klass)
 	plugin_class->activate = plugin_activate_impl;
 	plugin_class->deactivate = plugin_deactivate_impl;
 	plugin_class->create_configure_dialog = plugin_create_configure_dialog_impl;
+	plugin_class->update_ui = plugin_update_ui_impl;
 
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationPluginPrivate));
 }

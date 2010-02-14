@@ -44,6 +44,12 @@ InfcNodeRequest *gedit_collaboration_manager_subscribe (GeditCollaborationManage
                                                         InfcBrowser               *browser,
                                                         const InfcBrowserIter     *iter);
 
+void gedit_collaboration_manager_clear_colors (GeditCollaborationManager *manager,
+                                               GeditTab                  *tab);
+
+gboolean gedit_collaboration_manager_tab_is_managed (GeditCollaborationManager *manager,
+                                                     GeditTab                  *tab);
+
 G_END_DECLS
 
 #endif /* __GEDIT_COLLABORATION_MANAGER_H__ */

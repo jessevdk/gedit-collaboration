@@ -49,6 +49,15 @@ gedit_collaboration_window_helper_dispose (GObject *object)
 
 	if (helper->priv->window)
 	{
+		GtkUIManager *manager;
+		GeditPanel *panel;
+
+		manager = gedit_window_get_ui_manager (helper->priv->window);
+		gtk_ui_manager_remove_ui (manager, helper->priv->ui_id);
+
+		panel = gedit_window_get_side_panel (helper->priv->window);
+		gedit_panel_remove_item (panel, helper->priv->panel_widget);
+
 		g_object_unref (helper->priv->window);
 		helper->priv->window = NULL;
 	}
@@ -552,6 +561,58 @@ init_infinity (GeditCollaborationWindowHelper *helper)
 	g_object_unref (xmpp_manager);
 }
 
+static void
+on_clear_collaboration_colors_activate (GtkAction                      *action,
+                                        GeditCollaborationWindowHelper *helper)
+{
+	GeditTab *tab;
+
+	tab = gedit_window_get_active_tab (helper->priv->window);
+
+	gedit_collaboration_manager_clear_colors (helper->priv->manager,
+	                                          tab);
+}
+
+static const gchar submenu[] = {
+"<ui>"
+"  <menubar name='MenuBar'>"
+"    <menu name='ViewMenu' action='View'>"
+"      <separator />"
+"      <menuitem name='CollaborationClearColors' action='CollaborationClearColorsAction'/>"
+"    </menu>"
+"  </menubar>"
+"</ui>"
+};
+
+static const GtkActionEntry action_clear_colors_entries[] =
+{
+	{ "CollaborationClearColorsAction", NULL, N_("Clear _Collaboration Colors"), NULL,
+	 N_("Clear collaboration user colors"),
+	 G_CALLBACK (on_clear_collaboration_colors_activate)},
+};
+
+static void
+add_window_menu (GeditCollaborationWindowHelper *helper)
+{
+	GtkUIManager *manager;
+	manager = gedit_window_get_ui_manager (helper->priv->window);
+
+	helper->priv->action_group = gtk_action_group_new ("GeditCollaborationWindowActions");
+	gtk_action_group_set_translation_domain (helper->priv->action_group,
+	                                         GETTEXT_PACKAGE);
+
+	gtk_action_group_add_actions (helper->priv->action_group,
+	                              action_clear_colors_entries,
+	                              G_N_ELEMENTS (action_clear_colors_entries),
+	                              helper);
+
+	gtk_ui_manager_insert_action_group (manager, helper->priv->action_group, -1);
+
+	helper->priv->ui_id = gtk_ui_manager_add_ui_from_string (manager,
+	                                                         submenu,
+	                                                         -1,
+	                                                         NULL);
+}
 
 static void
 build_ui (GeditCollaborationWindowHelper *helper)
@@ -636,8 +697,11 @@ build_ui (GeditCollaborationWindowHelper *helper)
 
 	gtk_widget_show (image);
 	gedit_panel_add_item (panel, vbox, _("Collaboration"), image);
+	helper->priv->panel_widget = vbox;
 
 	update_sensitivity (helper);
+
+	add_window_menu (helper);
 }
 
 static void
@@ -696,4 +760,25 @@ gedit_collaboration_window_helper_new (GeditWindow *window,
 	                     "window", window,
 	                     "data-dir", data_dir,
 	                     NULL);
+}
+
+void
+gedit_collaboration_window_helper_update_ui (GeditCollaborationWindowHelper *helper)
+{
+	GeditTab *tab;
+	gboolean sensitive;
+	GtkAction *action;
+
+	g_return_if_fail (GEDIT_IS_COLLABORATION_WINDOW_HELPER (helper));
+
+	tab = gedit_window_get_active_tab (helper->priv->window);
+
+	sensitive = tab != NULL &&
+	            gedit_collaboration_manager_tab_is_managed (helper->priv->manager,
+	                                                        tab);
+
+	action = gtk_action_group_get_action (helper->priv->action_group,
+	                                      "CollaborationClearColorsAction");
+
+	gtk_action_set_sensitive (action, sensitive);
 }

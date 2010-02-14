@@ -39,8 +39,12 @@ struct _GeditCollaborationWindowHelperPrivate
 
 	GtkBuilder *builder;
 	GtkUIManager *uimanager;
+	GtkWidget *panel_widget;
 
 	Gsasl *sasl_ctx;
+
+	guint ui_id;
+	GtkActionGroup *action_group;
 };
 
 G_END_DECLS

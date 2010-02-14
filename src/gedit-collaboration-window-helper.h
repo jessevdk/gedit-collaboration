@@ -36,6 +36,8 @@ GeditCollaborationWindowHelper *gedit_collaboration_window_helper_new (GeditWind
                                                                        const gchar *data_dir);
 GType gedit_collaboration_window_helper_register_type (GTypeModule *module);
 
+void gedit_collaboration_window_helper_update_ui (GeditCollaborationWindowHelper *helper);
+
 G_END_DECLS
 
 #endif /* __GEDIT_COLLABORATION_WINDOW_HELPER_H__ */
