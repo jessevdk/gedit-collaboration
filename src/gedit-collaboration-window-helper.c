@@ -317,6 +317,8 @@ show_password_dialog (GeditCollaborationWindowHelper *helper,
 	gchar *remote;
 	gchar *text;
 	gchar *name;
+	gchar *username;
+	gchar *remotename;
 
 	builder = gedit_collaboration_create_builder (helper->priv->data_dir,
 	                                              "gedit-collaboration-password-dialog.ui");
@@ -332,14 +334,28 @@ show_password_dialog (GeditCollaborationWindowHelper *helper,
 
 	g_object_get (connection, "remote-hostname", &remote, NULL);
 
-	name = g_strdup_printf ("<i>%s@%s</i>",
-	                       gedit_collaboration_user_get_name (user),
-	                       remote);
+	username = g_markup_escape_text (gedit_collaboration_user_get_name (user), -1);
+	remotename = g_markup_escape_text (remote, -1);
+
+	name = g_strdup_printf ("<i>%s@%s</i>", username, remotename);
+
 	g_free (remote);
+	g_free (username);
+	g_free (remotename);
 
 	text = g_strdup_printf (_("Please provide a password for %s"),
 	                        name);
 	g_free (name);
+
+	if (!inf_xmpp_connection_get_tls_enabled (connection))
+	{
+		gchar *all = g_strdup_printf ("%s\n\n<small><b>%s</b></small>",
+		                              text,
+		                              _("Note: The connection is not secure"));
+
+		g_free (text);
+		text = all;
+	}
 
 	gtk_label_set_markup (GTK_LABEL (label),
 	                      text);
