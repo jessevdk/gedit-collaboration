@@ -403,7 +403,7 @@ on_join_user_request_finished (InfcUserRequest *request,
 	view = gedit_tab_get_view (subscription->tab);
 	doc = gedit_tab_get_document (subscription->tab);
 
-	gtk_text_buffer_begin_user_action (GTK_TEXT_BUFFER (doc));
+	gtk_text_buffer_end_user_action (GTK_TEXT_BUFFER (doc));
 	gtk_source_buffer_end_not_undoable_action (GTK_SOURCE_BUFFER (doc));
 	subscription->loading = FALSE;
 
