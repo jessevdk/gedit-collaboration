@@ -36,6 +36,7 @@ enum
 	STYLE_SET,
 	VIEW_DESTROYED,
 	SESSION_CLOSE,
+	CONNECTION_STATUS,
 	NUM_EXTERNAL_SIGNALS
 };
 
@@ -192,6 +193,7 @@ subscription_free (Subscription *subscription)
 
 	if (subscription->proxy != NULL)
 	{
+		InfXmlConnection *connection;
 		InfSession *session = infc_session_proxy_get_session (subscription->proxy);
 
 		gint handlers[] = {
@@ -210,6 +212,14 @@ subscription_free (Subscription *subscription)
 				g_signal_handler_disconnect (session,
 				                             subscription->signal_handlers[handlers[i]]);
 			}
+		}
+
+		connection = infc_session_proxy_get_connection (subscription->proxy);
+
+		if (connection != NULL)
+		{
+			g_signal_handler_disconnect (connection,
+			                             subscription->signal_handlers[CONNECTION_STATUS]);
 		}
 
 		/* Close the session */
@@ -267,6 +277,10 @@ subscription_free (Subscription *subscription)
 static void
 close_subscription (Subscription *subscription)
 {
+	GObject *proxy;
+
+	proxy = g_object_ref (subscription->proxy);
+
 	g_hash_table_remove (subscription->manager->priv->subscription_map,
 	                     subscription->proxy);
 
@@ -275,6 +289,7 @@ close_subscription (Subscription *subscription)
 		                subscription);
 
 	subscription_free (subscription);
+	g_object_unref (proxy);
 }
 
 static void
@@ -346,8 +361,10 @@ gedit_collaboration_manager_init (GeditCollaborationManager *self)
 	self->priv->note_plugin.note_type = "InfText";
 	self->priv->note_plugin.session_new = create_session_new;
 
-	self->priv->subscription_map = g_hash_table_new (g_direct_hash,
-	                                                 g_direct_equal);
+	self->priv->subscription_map = g_hash_table_new_full (g_direct_hash,
+	                                                      g_direct_equal,
+	                                                      (GDestroyNotify)g_object_unref,
+	                                                      NULL);
 }
 
 GeditCollaborationManager *
@@ -715,6 +732,24 @@ on_session_close (InfSession   *session,
 }
 
 static void
+on_connection_status (InfXmlConnection *connection,
+                      GParamSpec       *spec,
+                      Subscription     *subscription)
+{
+	InfXmlConnectionStatus status;
+
+	g_object_get (connection, "status", &status, NULL);
+
+	if (status == INF_XML_CONNECTION_CLOSED)
+	{
+		if (subscription->proxy)
+		{
+			inf_session_close (infc_session_proxy_get_session (subscription->proxy));
+		}
+	}
+}
+
+static void
 on_subscribe_request_finished (InfcNodeRequest *request,
                                InfcBrowserIter *iter,
                                Subscription    *subscription)
@@ -732,7 +767,7 @@ on_subscribe_request_finished (InfcNodeRequest *request,
 
 	subscription->proxy = proxy;
 	g_hash_table_insert (manager->priv->subscription_map,
-	                     proxy,
+	                     g_object_ref (proxy),
 	                     subscription);
 
 	subscription->tab = g_object_get_data (G_OBJECT (session), SESSION_TAB_DATA_KEY);
@@ -794,6 +829,12 @@ on_subscribe_request_finished (InfcNodeRequest *request,
 		                        "close",
 		                        G_CALLBACK (on_session_close),
 		                        subscription);
+
+	subscription->signal_handlers[CONNECTION_STATUS] =
+		g_signal_connect (infc_session_proxy_get_connection (subscription->proxy),
+		                  "notify::status",
+		                   G_CALLBACK (on_connection_status),
+		                   subscription);
 }
 
 InfcNodeRequest *
