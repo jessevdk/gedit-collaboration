@@ -313,7 +313,7 @@ create_session_new (InfIo                       *io,
 	gdk_cursor_unref (cursor);
 
 	textbuffer = GTK_TEXT_BUFFER (gedit_tab_get_document (tab));
-	user_table = inf_user_table_new();
+	user_table = inf_user_table_new ();
 	buffer = INF_TEXT_BUFFER (inf_text_gtk_buffer_new (textbuffer, user_table));
 
 	update_saturation_value (GTK_WIDGET (view),
@@ -326,6 +326,9 @@ create_session_new (InfIo                       *io,
 	                                                status,
 	                                                INF_COMMUNICATION_GROUP (sync_group),
 	                                                sync_connection);
+
+	g_object_unref (buffer);
+	g_object_unref (user_table);
 
 	g_object_set_data (G_OBJECT (session),
 	                   SESSION_TAB_DATA_KEY,
