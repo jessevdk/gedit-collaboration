@@ -43,6 +43,10 @@ struct _GeditCollaborationWindowHelperPrivate
 
 	guint ui_id;
 	GtkActionGroup *action_group;
+
+	guint active_tab_changed_handler_id;
+	GtkWidget *scrolled_window_user_view;
+	GtkWidget *tree_view_user_view;
 };
 
 G_END_DECLS

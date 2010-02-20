@@ -32,6 +32,8 @@
 #include "gedit-collaboration-document-message.h"
 #include "gedit-collaboration.h"
 #include "gedit-collaboration-undo-manager.h"
+#include "gedit-collaboration-user-store.h"
+#include "gedit-collaboration-hue-renderer.h"
 
 #include <libinfinity/common/inf-init.h>
 
@@ -55,6 +57,8 @@ GEDIT_PLUGIN_REGISTER_TYPE_WITH_CODE (GeditCollaborationPlugin, gedit_collaborat
 	gedit_collaboration_color_button_register_type (type_module); \
 	gedit_collaboration_document_message_register_type (type_module); \
 	gedit_collaboration_undo_manager_register_type (type_module); \
+	gedit_collaboration_user_store_register_type (type_module); \
+	gedit_collaboration_hue_renderer_register_type (type_module); \
 )
 
 static void

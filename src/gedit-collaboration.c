@@ -27,7 +27,7 @@ gedit_collaboration_get_sv (GtkWidget *widget,
 	gdouble h;
 
 	style = gtk_widget_get_style (widget);
-	color = style->base[GTK_STATE_NORMAL];
+	color = style->base[gtk_widget_get_state (widget)];
 
 	r = color.red / 65535.0;
 	g = color.green / 65535.0;

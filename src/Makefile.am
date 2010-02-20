@@ -36,6 +36,10 @@ libcollaboration_la_SOURCES = \
 	gedit-collaboration-color-button.c			\
 	gedit-collaboration-document-message.h			\
 	gedit-collaboration-document-message.c			\
+	gedit-collaboration-hue-renderer.h			\
+	gedit-collaboration-hue-renderer.c			\
+	gedit-collaboration-user-store.h			\
+	gedit-collaboration-user-store.c			\
 	gedit-collaboration-undo-manager.h			\
 	gedit-collaboration-undo-manager.c
 

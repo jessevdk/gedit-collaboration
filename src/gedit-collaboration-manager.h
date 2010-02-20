@@ -8,6 +8,7 @@
 #include <libinfinity/client/infc-note-plugin.h>
 #include <libinfinity/client/infc-browser.h>
 #include "gedit-collaboration-user.h"
+#include "gedit-collaboration-user-store.h"
 
 G_BEGIN_DECLS
 
@@ -19,9 +20,11 @@ G_BEGIN_DECLS
 #define GEDIT_COLLABORATION_IS_MANAGER_CLASS(klass)	(G_TYPE_CHECK_CLASS_TYPE ((klass), GEDIT_COLLABORATION_TYPE_MANAGER))
 #define GEDIT_COLLABORATION_MANAGER_GET_CLASS(obj)	(G_TYPE_INSTANCE_GET_CLASS ((obj), GEDIT_COLLABORATION_TYPE_MANAGER, GeditCollaborationManagerClass))
 
-typedef struct _GeditCollaborationManager			GeditCollaborationManager;
+typedef struct _GeditCollaborationManager		GeditCollaborationManager;
 typedef struct _GeditCollaborationManagerClass		GeditCollaborationManagerClass;
 typedef struct _GeditCollaborationManagerPrivate	GeditCollaborationManagerPrivate;
+
+typedef struct _GeditCollaborationSubscription		GeditCollaborationSubscription;
 
 struct _GeditCollaborationManager {
 	GObject parent;
@@ -47,8 +50,12 @@ InfcNodeRequest *gedit_collaboration_manager_subscribe (GeditCollaborationManage
 void gedit_collaboration_manager_clear_colors (GeditCollaborationManager *manager,
                                                GeditTab                  *tab);
 
-gboolean gedit_collaboration_manager_tab_is_managed (GeditCollaborationManager *manager,
-                                                     GeditTab                  *tab);
+GeditCollaborationSubscription *
+gedit_collaboration_manager_tab_get_subscription (GeditCollaborationManager *manager,
+                                                  GeditTab                  *tab);
+
+GeditCollaborationUserStore *
+gedit_collaboration_subscription_get_user_store (GeditCollaborationSubscription *subscription);
 
 G_END_DECLS
 

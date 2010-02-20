@@ -11,6 +11,7 @@
 #include "gedit-collaboration.h"
 #include "gedit-collaboration-document-message.h"
 #include "gedit-collaboration-undo-manager.h"
+#include "gedit-collaboration-user-store.h"
 
 #include <config.h>
 #include <glib/gi18n-lib.h>
@@ -41,7 +42,7 @@ enum
 	NUM_EXTERNAL_SIGNALS
 };
 
-typedef struct
+struct _GeditCollaborationSubscription
 {
 	InfcBrowser *browser;
 	InfcBrowserIter iter;
@@ -59,7 +60,9 @@ typedef struct
 	GtkWidget *progress_area;
 
 	gboolean loading;
-} Subscription;
+
+	GeditCollaborationUserStore *user_store;
+};
 
 /* Properties */
 enum
@@ -68,8 +71,17 @@ enum
 	PROP_WINDOW
 };
 
-static void request_join (Subscription *subscription, const gchar *name);
-static void subscription_free (Subscription *subscription);
+/* Signals */
+enum
+{
+	CHANGED,
+	NUM_SIGNALS
+};
+
+static guint signals[NUM_SIGNALS] = {0,};
+
+static void request_join (GeditCollaborationSubscription *subscription, const gchar *name);
+static void gedit_collaboration_subscription_free (GeditCollaborationSubscription *subscription);
 
 GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationManager, gedit_collaboration_manager, G_TYPE_OBJECT)
 
@@ -92,7 +104,7 @@ gedit_collaboration_manager_dispose (GObject *object)
 		g_hash_table_destroy (manager->priv->subscription_map);
 
 		g_slist_foreach (manager->priv->subscriptions,
-		                 (GFunc)subscription_free,
+		                 (GFunc)gedit_collaboration_subscription_free,
 		                 NULL);
 
 		g_slist_free (manager->priv->subscriptions);
@@ -160,6 +172,17 @@ gedit_collaboration_manager_class_init (GeditCollaborationManagerClass *klass)
 	                                                      GEDIT_TYPE_WINDOW,
 	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
+	signals[CHANGED] =
+		g_signal_new ("changed",
+		              G_TYPE_FROM_CLASS (klass),
+		              G_SIGNAL_RUN_LAST,
+		              0,
+		              NULL, 
+		              NULL,
+		              g_cclosure_marshal_VOID__OBJECT,
+		              G_TYPE_NONE,
+		              1,
+		              GEDIT_TYPE_TAB);
 
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationManagerPrivate));
 }
@@ -184,12 +207,17 @@ on_style_set (GtkWidget        *widget,
 }
 
 static void
-subscription_free (Subscription *subscription)
+gedit_collaboration_subscription_free (GeditCollaborationSubscription *subscription)
 {
 	if (subscription->tab)
 	{
 		gedit_collaboration_manager_clear_colors (subscription->manager,
 		                                          subscription->tab);
+	}
+
+	if (subscription->user_store)
+	{
+		g_object_unref (subscription->user_store);
 	}
 
 	if (subscription->proxy != NULL)
@@ -276,11 +304,16 @@ subscription_free (Subscription *subscription)
 		g_object_unref (subscription->browser);
 	}
 
-	g_slice_free (Subscription, subscription);
+	if (subscription->tab)
+	{
+		g_signal_emit (subscription->manager, signals[CHANGED], 0, subscription->tab);
+	}
+
+	g_slice_free (GeditCollaborationSubscription, subscription);
 }
 
 static void
-close_subscription (Subscription *subscription)
+close_subscription (GeditCollaborationSubscription *subscription)
 {
 	GObject *proxy;
 
@@ -293,13 +326,13 @@ close_subscription (Subscription *subscription)
 		g_slist_remove (subscription->manager->priv->subscriptions,
 		                subscription);
 
-	subscription_free (subscription);
+	gedit_collaboration_subscription_free (subscription);
 	g_object_unref (proxy);
 }
 
 static void
 on_view_destroyed (GtkWidget    *tab,
-                   Subscription *subscription)
+                   GeditCollaborationSubscription *subscription)
 {
 	close_subscription (subscription);
 }
@@ -391,7 +424,7 @@ gedit_collaboration_manager_get_note_plugin (GeditCollaborationManager *manager)
 static void
 on_join_user_request_finished (InfcUserRequest *request,
                                InfUser         *user,
-                               Subscription    *subscription)
+                               GeditCollaborationSubscription    *subscription)
 {
 	InfSession *session;
 	InfBuffer *buffer;
@@ -430,7 +463,7 @@ on_join_user_request_finished (InfcUserRequest *request,
 }
 
 static void
-handle_error (Subscription *subscription,
+handle_error (GeditCollaborationSubscription *subscription,
               const GError *error)
 {
 	/* Show the error nicely in the document, and cancel the session,
@@ -496,7 +529,7 @@ handle_error (Subscription *subscription,
 static void
 on_join_user_request_failed (InfcRequest  *request,
                              const GError *error,
-                             Subscription *subscription)
+                             GeditCollaborationSubscription *subscription)
 {
 	if (error->domain == inf_user_error_quark () &&
 	    error->code == INF_USER_ERROR_NAME_IN_USE)
@@ -529,13 +562,13 @@ static void
 on_synchronization_failed (InfSession       *session,
                            InfXmlConnection *connection,
                            const GError     *error,
-                           Subscription     *subscription)
+                           GeditCollaborationSubscription     *subscription)
 {
 	handle_error (subscription, error);
 }
 
 static void
-request_join (Subscription *subscription,
+request_join (GeditCollaborationSubscription *subscription,
               const gchar  *name)
 {
 	InfcUserRequest *request;
@@ -622,7 +655,7 @@ request_join (Subscription *subscription,
 
 #ifndef GEDIT_STABLE
 static gchar *
-guess_content_type (Subscription *subscription)
+guess_content_type (GeditCollaborationSubscription *subscription)
 {
 	GtkTextIter start;
 	GtkTextIter end;
@@ -651,7 +684,7 @@ guess_content_type (Subscription *subscription)
 static void
 on_synchronization_complete (InfSession       *session,
                              InfXmlConnection *connection,
-                             Subscription     *subscription)
+                             GeditCollaborationSubscription     *subscription)
 {
 	gchar *content_type;
 
@@ -678,11 +711,14 @@ on_synchronization_complete (InfSession       *session,
 	g_timer_destroy (subscription->progress_timer);
 	subscription->progress_timer = NULL;
 
+	subscription->user_store = gedit_collaboration_user_store_new (inf_session_get_user_table (session));
 	request_join (subscription, NULL);
+
+	g_signal_emit (subscription->manager, signals[CHANGED], 0, subscription->tab);
 }
 
 static void
-on_progress_response (Subscription *subscription)
+on_progress_response (GeditCollaborationSubscription *subscription)
 {
 	gedit_window_close_tab (subscription->manager->priv->window,
 	                        subscription->tab);
@@ -692,7 +728,7 @@ static void
 on_synchronization_progress (InfSession       *session,
                              InfXmlConnection *connection,
                              gdouble           progress,
-                             Subscription     *subscription)
+                             GeditCollaborationSubscription     *subscription)
 {
 #ifndef GEDIT_STABLE
 	if (subscription->progress_area != NULL)
@@ -727,14 +763,14 @@ on_synchronization_progress (InfSession       *session,
 static void
 on_subscribe_request_failed (InfcNodeRequest *request,
                              const GError    *error,
-                             Subscription    *subscription)
+                             GeditCollaborationSubscription    *subscription)
 {
 	handle_error (subscription, error);
 }
 
 static void
 on_session_close (InfSession   *session,
-                  Subscription *subscription)
+                  GeditCollaborationSubscription *subscription)
 {
 	GError *error;
 
@@ -749,7 +785,7 @@ on_session_close (InfSession   *session,
 static void
 on_connection_status (InfXmlConnection *connection,
                       GParamSpec       *spec,
-                      Subscription     *subscription)
+                      GeditCollaborationSubscription     *subscription)
 {
 	InfXmlConnectionStatus status;
 
@@ -767,7 +803,7 @@ on_connection_status (InfXmlConnection *connection,
 static void
 on_subscribe_request_finished (InfcNodeRequest *request,
                                InfcBrowserIter *iter,
-                               Subscription    *subscription)
+                               GeditCollaborationSubscription    *subscription)
 {
 	InfcSessionProxy *proxy;
 	InfSession *session;
@@ -859,7 +895,7 @@ gedit_collaboration_manager_subscribe (GeditCollaborationManager *manager,
                                        const InfcBrowserIter     *iter)
 {
 	InfcNodeRequest *request;
-	Subscription *subscription;
+	GeditCollaborationSubscription *subscription;
 	InfXmlConnection *connection;
 	InfcSessionProxy *proxy;
 
@@ -894,7 +930,7 @@ gedit_collaboration_manager_subscribe (GeditCollaborationManager *manager,
 	connection = infc_browser_get_connection (browser);
 	request = infc_browser_iter_subscribe_session (browser, iter);
 
-	subscription = g_slice_new0 (Subscription);
+	subscription = g_slice_new0 (GeditCollaborationSubscription);
 	subscription->browser = g_object_ref (browser);
 	subscription->iter = *iter;
 	subscription->user = g_object_ref (user);
@@ -922,7 +958,7 @@ set_show_colors (GeditCollaborationManager *manager,
                  GeditTab                  *tab,
                  gboolean                   show_colors)
 {
-	Subscription *subscription;
+	GeditCollaborationSubscription *subscription;
 
 	subscription = g_object_get_data (G_OBJECT (tab),
 	                                  TAB_SUBSCRIPTION_DATA_KEY);
@@ -958,13 +994,19 @@ gedit_collaboration_manager_clear_colors (GeditCollaborationManager *manager,
 	set_show_colors (manager, tab, FALSE);
 }
 
-gboolean
-gedit_collaboration_manager_tab_is_managed (GeditCollaborationManager *manager,
-                                            GeditTab                  *tab)
+GeditCollaborationSubscription *
+gedit_collaboration_manager_tab_get_subscription (GeditCollaborationManager *manager,
+                                                  GeditTab                  *tab)
 {
-	g_return_val_if_fail (GEDIT_COLLABORATION_IS_MANAGER (manager), FALSE);
-	g_return_val_if_fail (GEDIT_IS_TAB (tab), FALSE);
+	g_return_val_if_fail (GEDIT_COLLABORATION_IS_MANAGER (manager), NULL);
+	g_return_val_if_fail (GEDIT_IS_TAB (tab), NULL);
 
 	return g_object_get_data (G_OBJECT (tab),
-	                          TAB_SUBSCRIPTION_DATA_KEY) != NULL;
+	                          TAB_SUBSCRIPTION_DATA_KEY);
+}
+
+GeditCollaborationUserStore *
+gedit_collaboration_subscription_get_user_store (GeditCollaborationSubscription *subscription)
+{
+	return subscription->user_store;
 }
