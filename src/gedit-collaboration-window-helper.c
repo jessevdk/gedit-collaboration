@@ -1082,6 +1082,11 @@ on_paned_mapped (GtkWidget                      *paned,
 
 	gtk_paned_set_position (GTK_PANED (paned),
 	                        allocation.height - 200);
+
+	/* run this only once */
+	g_signal_handlers_disconnect_by_func (paned,
+	                                      G_CALLBACK (on_paned_mapped),
+	                                      helper);
 }
 
 static gboolean
@@ -1176,10 +1181,10 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	gedit_panel_add_item (panel, paned, _("Collaboration"), image);
 	helper->priv->panel_widget = paned;
 
-	g_signal_connect (paned,
-	                  "map",
-	                  G_CALLBACK (on_paned_mapped),
-	                  helper);
+	g_signal_connect_after (paned,
+	                        "map",
+	                        G_CALLBACK (on_paned_mapped),
+	                        helper);
 
 	update_sensitivity (helper);
 
