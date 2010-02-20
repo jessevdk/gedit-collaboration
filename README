@@ -17,3 +17,5 @@ NOTE:
 	* infinote 0.4 is not compatible with infinoted 0.3 or
 	  sobby. You will need an infinoted 0.4 server to share
 	  documents.
+
+	* The current version needs the latest gtksourceview from git
