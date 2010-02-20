@@ -10,6 +10,7 @@
 #include <libinfinity/common/inf-error.h>
 #include "gedit-collaboration.h"
 #include "gedit-collaboration-document-message.h"
+#include "gedit-collaboration-undo-manager.h"
 
 #include <config.h>
 #include <glib/gi18n-lib.h>
@@ -238,6 +239,10 @@ subscription_free (Subscription *subscription)
 
 	if (subscription->tab != NULL)
 	{
+		GeditDocument *doc;
+
+		doc = gedit_tab_get_document (subscription->tab);
+
 		g_object_set_data (G_OBJECT (subscription->tab),
 		                   TAB_SUBSCRIPTION_DATA_KEY,
 		                   NULL);
@@ -245,12 +250,12 @@ subscription_free (Subscription *subscription)
 		g_signal_handler_disconnect (gedit_tab_get_view (subscription->tab),
 		                             subscription->signal_handlers[VIEW_DESTROYED]);
 
+		/* Reset the undo manager */
+		gtk_source_buffer_set_undo_manager (GTK_SOURCE_BUFFER (doc),
+		                                    NULL);
+
 		if (subscription->loading)
 		{
-			GeditDocument *doc;
-
-			doc = gedit_tab_get_document (subscription->tab);
-
 			gtk_text_buffer_end_user_action (GTK_TEXT_BUFFER (doc));
 			gtk_source_buffer_end_not_undoable_action (GTK_SOURCE_BUFFER (doc));
 		}
@@ -392,6 +397,7 @@ on_join_user_request_finished (InfcUserRequest *request,
 	InfBuffer *buffer;
 	GeditView *view;
 	GeditDocument *doc;
+	GeditCollaborationUndoManager *undo_manager;
 
 	session = infc_session_proxy_get_session (subscription->proxy);
 	buffer = inf_session_get_buffer (session);
@@ -408,6 +414,15 @@ on_join_user_request_finished (InfcUserRequest *request,
 	subscription->loading = FALSE;
 
 	gtk_text_buffer_set_modified (GTK_TEXT_BUFFER (doc), FALSE);
+
+	/* Install the special undo manager */
+	undo_manager = gedit_collaboration_undo_manager_new (INF_ADOPTED_SESSION (session),
+	                                                     INF_ADOPTED_USER (user));
+
+	gtk_source_buffer_set_undo_manager (GTK_SOURCE_BUFFER (doc),
+	                                    GTK_SOURCE_UNDO_MANAGER (undo_manager));
+
+	g_object_unref (undo_manager);
 
 	gtk_text_view_set_editable (GTK_TEXT_VIEW (view), TRUE);
 	gdk_window_set_cursor (gtk_widget_get_window (GTK_WIDGET (view)),

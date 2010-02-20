@@ -35,7 +35,9 @@ libcollaboration_la_SOURCES = \
 	gedit-collaboration-color-button.h			\
 	gedit-collaboration-color-button.c			\
 	gedit-collaboration-document-message.h			\
-	gedit-collaboration-document-message.c
+	gedit-collaboration-document-message.c			\
+	gedit-collaboration-undo-manager.h			\
+	gedit-collaboration-undo-manager.c
 
 libcollaboration_la_LDFLAGS = $(PLUGIN_LIBTOOL_FLAGS)
 libcollaboration_la_LIBADD = $(GEDIT_LIBS)
