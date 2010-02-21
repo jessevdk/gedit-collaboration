@@ -580,9 +580,6 @@ subscribe_chat_cb (InfcNodeRequest *infcnoderequest,
 	inf_gtk_chat_set_session (INF_GTK_CHAT (chat),
 	                          INF_CHAT_SESSION (session));
 
-	inf_gtk_chat_set_session (INF_GTK_CHAT (chat),
-	                          INF_CHAT_SESSION (session));
-
 	g_signal_connect_after (session,
 	                        "synchronization-failed",
 	                        G_CALLBACK (sync_failed),
