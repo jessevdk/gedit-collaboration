@@ -534,22 +534,14 @@ on_join_user_request_failed (InfcRequest  *request,
 	if (error->domain == inf_user_error_quark () &&
 	    error->code == INF_USER_ERROR_NAME_IN_USE)
 	{
-		/* Generate a new name and try again */
 		gchar *new_name;
-		gchar *suffix;
 
-		++subscription->name_failed_counter;
-
-		suffix = g_strnfill (++subscription->name_failed_counter,
-		                     '_');
-
-		new_name = g_strdup_printf ("%s%s",
-		                            gedit_collaboration_user_get_name (subscription->user),
-		                            suffix);
+		new_name = gedit_collaboration_generate_new_name (
+			gedit_collaboration_user_get_name (subscription->user),
+			&subscription->name_failed_counter);
 
 		request_join (subscription, new_name);
 
-		g_free (suffix);
 		g_free (new_name);
 	}
 	else if (error)

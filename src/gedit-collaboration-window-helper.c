@@ -10,10 +10,13 @@
 #include "gedit-collaboration-user-store.h"
 
 #include <libinfgtk/inf-gtk-browser-model-sort.h>
+#include <libinfgtk/inf-gtk-chat.h>
 #include <libinftext/inf-text-user.h>
+#include <libinfinity/common/inf-error.h>
 
 #define XML_UI_FILE "gedit-collaboration-window-helper.ui"
 #define DIALOG_BUILDER_KEY "GeditCollaborationBookmarkDialogKey"
+#define CHAT_DATA_KEY "GeditCollaborationChatDataKey"
 
 #define GEDIT_COLLABORATION_WINDOW_HELPER_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GEDIT_TYPE_COLLABORATION_WINDOW_HELPER, GeditCollaborationWindowHelperPrivate))
 
@@ -27,6 +30,45 @@ enum
 
 GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationWindowHelper, gedit_collaboration_window_helper,
                           G_TYPE_OBJECT)
+
+static GdkPixbuf *
+try_create_icon (const gchar *data_dir)
+{
+	gchar *path;
+	gint width, height;
+	GdkPixbuf *icon;
+
+	path = g_build_filename (data_dir, "icons", "people.svg", NULL);
+
+	gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, &width, &height);
+	icon = gdk_pixbuf_new_from_file_at_size (path, width, height, NULL);
+	g_free (path);
+
+	return icon;
+}
+
+static GtkWidget *
+create_collaboration_image (GeditCollaborationWindowHelper *helper)
+{
+	GdkPixbuf *icon;
+	GtkWidget *image;
+
+	icon = try_create_icon (helper->priv->data_dir);
+
+	if (icon == NULL)
+	{
+		icon = try_create_icon (GEDIT_PLUGINS_DATA_DIR "/collaboration");
+	}
+
+	image = gtk_image_new_from_pixbuf (icon);
+
+	if (icon != NULL)
+	{
+		g_object_unref (icon);
+	}
+
+	return image;
+}
 
 static void
 gedit_collaboration_window_helper_finalize (GObject *object)
@@ -309,12 +351,332 @@ on_selection_changed (InfGtkBrowserView              *browser_view,
 	update_sensitivity (helper);
 }
 
+typedef struct _ChatData
+{
+	GeditCollaborationWindowHelper *helper;
+	InfcBrowser *browser;
+	InfcSessionProxy *proxy;
+	GtkWidget *chat;
+	const gchar *user;
+	gint name_failed_counter;
+} ChatData;
+
+static void request_join (ChatData *data, const gchar *name);
+
+static void
+free_chat_data (gpointer data)
+{
+	g_slice_free (ChatData, data);
+}
+
+static void
+on_join_user_request_finished (InfcUserRequest *request,
+                               InfUser         *user,
+                               gpointer         data)
+{
+	ChatData *cdata = (ChatData *)data;
+
+	inf_gtk_chat_set_active_user (INF_GTK_CHAT (cdata->chat),
+	                              user);
+
+	free_chat_data (cdata);
+}
+
+static void
+on_join_user_request_failed (InfcRequest  *request,
+                             const GError *error,
+                             gpointer      data)
+{
+	if (error->domain == inf_user_error_quark () &&
+	    error->code == INF_USER_ERROR_NAME_IN_USE)
+	{
+		gchar *new_name;
+		ChatData *cdata = (ChatData *)data;
+
+		new_name = gedit_collaboration_generate_new_name (
+			cdata->user,
+			&cdata->name_failed_counter);
+
+		request_join (cdata, new_name);
+
+		g_free (new_name);
+	}
+	else if (error)
+	{
+		g_warning ("%s", error->message);
+	}
+}
+
+static void
+request_join (ChatData    *data,
+              const gchar *name)
+{
+	InfcUserRequest *request;
+	GError *error = NULL;
+
+	GParameter parameters[] = {
+		{"name", {0,}}
+	};
+
+	g_value_init (&parameters[0].value, G_TYPE_STRING);
+	g_value_set_string (&parameters[0].value,
+	                    name);
+
+	request = infc_session_proxy_join_user (data->proxy,
+	                                        parameters,
+	                                        1,
+	                                        &error);
+
+	g_value_unset (&parameters[0].value);
+
+	if (error != NULL)
+	{
+		g_warning ("%s", error->message);
+		g_error_free (error);
+	}
+	else
+	{
+		g_signal_connect_after (request,
+		                        "failed",
+		                        G_CALLBACK (on_join_user_request_failed),
+		                        data);
+
+		g_signal_connect_after (request,
+		                        "finished",
+		                        G_CALLBACK (on_join_user_request_finished),
+		                        data);
+	}
+}
+
+static gchar *
+get_chat_name (GeditCollaborationWindowHelper *helper,
+               InfXmlConnection               *connection)
+{
+	GtkTreeIter iter;
+	GtkTreeModel *model = GTK_TREE_MODEL (helper->priv->browser_store);
+
+	if (!gtk_tree_model_get_iter_first (model, &iter))
+	{
+		return NULL;
+	}
+
+	do
+	{
+		gchar *name;
+		InfcBrowser *browser;
+
+		gtk_tree_model_get (model,
+		                    &iter,
+		                    INF_GTK_BROWSER_MODEL_COL_BROWSER,
+		                    &browser,
+		                    INF_GTK_BROWSER_MODEL_COL_NAME,
+		                    &name,
+		                    -1);
+
+		if (browser != NULL &&
+		    infc_browser_get_connection (browser) == connection)
+		{
+			g_object_unref (browser);
+			return name;
+		}
+
+		g_object_unref (browser);
+		g_free (name);
+	} while (gtk_tree_model_iter_next (model, &iter));
+
+	return NULL;
+}
+
+static void
+sync_failed (InfSession       *session,
+             InfXmlConnection *connection,
+             GError           *error,
+             gpointer          user_data)
+{
+	if (error != NULL)
+	{
+		g_warning ("%s", error->message);
+	}
+
+	inf_session_close (session);
+
+	free_chat_data (user_data);
+}
+
+static void
+sync_completed (InfSession       *session,
+                InfXmlConnection *connection,
+                gpointer          data)
+{
+	ChatData *cdata = (ChatData *)data;
+	GtkWidget *chat;
+	GeditPanel *panel;
+	GeditCollaborationBookmark *bookmark;
+	GeditCollaborationUser *user;
+	GtkWidget *image;
+	gchar *chat_name;
+
+	g_signal_handlers_disconnect_by_func (session,
+	                                      G_CALLBACK (sync_failed),
+	                                      data);
+
+	g_signal_handlers_disconnect_by_func (session,
+	                                      G_CALLBACK (sync_completed),
+	                                      data);
+
+	bookmark = g_object_get_data (G_OBJECT (connection),
+	                              BOOKMARK_DATA_KEY);
+
+	if (bookmark)
+	{
+		user = gedit_collaboration_bookmark_get_user (bookmark);
+	}
+	else
+	{
+		user = gedit_collaboration_user_get_default ();
+	}
+
+	chat_name = get_chat_name (cdata->helper, connection);
+
+	chat = inf_gtk_chat_new ();
+	gtk_widget_show (chat);
+
+	inf_gtk_chat_set_session (INF_GTK_CHAT (chat),
+	                          INF_CHAT_SESSION (session));
+
+	panel = gedit_window_get_bottom_panel (cdata->helper->priv->window);
+
+	image = create_collaboration_image (cdata->helper);
+	gedit_panel_add_item (panel, chat, chat_name ? chat_name : _("Chat"), image);
+	g_object_set_data (G_OBJECT (connection), CHAT_DATA_KEY, chat);
+
+	cdata->user = gedit_collaboration_user_get_name (user);
+	cdata->chat = chat;
+
+	g_free (chat_name);
+	request_join (cdata, cdata->user);
+}
+
+static void
+subscribe_chat_cb (InfcNodeRequest *infcnoderequest,
+                   InfcBrowserIter *iter,
+                   gpointer         data)
+{
+	InfcSessionProxy *proxy;
+	InfSession *session;
+	ChatData *cdata = (ChatData *) data;
+
+	proxy = infc_browser_get_chat_session (cdata->browser);
+
+	if (proxy == NULL)
+	{
+		free_chat_data (data);
+		return;
+	}
+
+	session = infc_session_proxy_get_session (proxy);
+	cdata->proxy = proxy;
+
+	g_signal_connect_after (session,
+	                        "synchronization-failed",
+	                        G_CALLBACK (sync_failed),
+	                        data);
+
+	g_signal_connect_after (session,
+	                        "synchronization-complete",
+	                        G_CALLBACK (sync_completed),
+	                        data);
+}
+
+static void
+subscribe_chat_failed_cb (InfcRequest *request,
+                          GError      *error,
+                          gpointer     user_data)
+{
+	if (error != NULL)
+	{
+		g_warning ("%s", error->message);
+	}
+
+	free_chat_data (user_data);
+}
+
+static void
+request_chat (InfcBrowser                    *browser,
+              GeditCollaborationWindowHelper *helper)
+{
+	InfcNodeRequest *request;
+	ChatData *data;
+
+	request = infc_browser_subscribe_chat (browser);
+
+	data = g_slice_new (ChatData);
+	data->helper = helper;
+	data->browser = browser;
+	data->proxy = NULL;
+	data->chat = NULL;
+	data->user = NULL;
+	data->name_failed_counter = 0;
+
+	g_signal_connect (request,
+	                  "failed",
+	                  G_CALLBACK (subscribe_chat_failed_cb),
+	                  data);
+
+	g_signal_connect (request,
+	                  "finished",
+	                  G_CALLBACK (subscribe_chat_cb),
+	                  data);
+}
+
+static void
+remove_chat (InfcBrowser                    *browser,
+             GeditCollaborationWindowHelper *helper)
+{
+	GtkWidget *chat;
+	GeditPanel *panel;
+	InfXmlConnection *connection;
+	InfcSessionProxy *proxy;
+
+	proxy = infc_browser_get_chat_session (browser);
+
+	if (proxy != NULL)
+	{
+		InfSession *session;
+
+		session = infc_session_proxy_get_session (proxy);
+		inf_session_close (session);
+	}
+
+	connection = infc_browser_get_connection (browser);
+
+	chat = GTK_WIDGET (g_object_get_data (G_OBJECT (connection),
+	                                      CHAT_DATA_KEY));
+
+	if (chat != NULL)
+	{
+		panel = gedit_window_get_bottom_panel (helper->priv->window);
+		gedit_panel_remove_item (panel, chat);
+
+		g_object_set_data (G_OBJECT (connection), CHAT_DATA_KEY, NULL);
+	}
+}
+
 static void
 on_browser_status_changed (InfcBrowser                    *browser,
                            GParamSpec                     *spec,
                            GeditCollaborationWindowHelper *helper)
 {
 	update_sensitivity (helper);
+
+	if (infc_browser_get_status (browser) == INFC_BROWSER_CONNECTED)
+	{
+		request_chat (browser, helper);
+	}
+	else if (infc_browser_get_status (browser) == INFC_BROWSER_DISCONNECTED)
+	{
+		remove_chat (browser, helper);
+	}
 }
 
 static void
@@ -945,22 +1307,6 @@ add_window_menu (GeditCollaborationWindowHelper *helper)
 	                                                         NULL);
 }
 
-static GdkPixbuf *
-try_create_icon (const gchar *data_dir)
-{
-	gchar *path;
-	gint width, height;
-	GdkPixbuf *icon;
-
-	path = g_build_filename (data_dir, "icons", "people.svg", NULL);
-
-	gtk_icon_size_lookup (GTK_ICON_SIZE_MENU, &width, &height);
-	icon = gdk_pixbuf_new_from_file_at_size (path, width, height, NULL);
-	g_free (path);
-
-	return icon;
-}
-
 static void
 user_hue_data_func (GtkTreeViewColumn              *tree_column,
                     GtkCellRenderer                *cell,
@@ -1097,7 +1443,6 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	GtkWidget *sw;
 	GtkWidget *toolbar;
 	GtkWidget *image;
-	GdkPixbuf *icon;
 	GtkBuilder *builder;
 	GtkWidget *paned;
 
@@ -1144,19 +1489,7 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	gtk_box_pack_start (GTK_BOX (vbox), sw, TRUE, TRUE, 0);
 
 	/* Create collaboration icon */
-	icon = try_create_icon (helper->priv->data_dir);
-
-	if (icon == NULL)
-	{
-		icon = try_create_icon (GEDIT_PLUGINS_DATA_DIR "/collaboration");
-	}
-
-	image = gtk_image_new_from_pixbuf (icon);
-
-	if (icon != NULL)
-	{
-		g_object_unref (icon);
-	}
+	image = create_collaboration_image (helper);
 
 	gtk_widget_show (image);
 

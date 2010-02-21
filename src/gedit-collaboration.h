@@ -28,6 +28,9 @@ gdouble gedit_collaboration_color_to_hue (GdkColor *color);
 GtkBuilder *gedit_collaboration_create_builder (const gchar *data_dir,
                                                 const gchar *filename);
 
+gchar *gedit_collaboration_generate_new_name (const gchar *name,
+                                              gint        *name_failed_counter);
+
 G_END_DECLS
 
 #endif /* __GEDIT_COLLABORATION_H__ */

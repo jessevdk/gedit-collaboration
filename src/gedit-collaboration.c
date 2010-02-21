@@ -112,3 +112,24 @@ gedit_collaboration_create_builder (const gchar *data_dir,
 
 	return builder;
 }
+
+gchar *
+gedit_collaboration_generate_new_name (const gchar *name,
+                                       gint        *name_failed_counter)
+{
+	gchar *new_name;
+	gchar *suffix;
+
+	++(*name_failed_counter);
+
+	suffix = g_strnfill (++(*name_failed_counter),
+	                     '_');
+
+	new_name = g_strdup_printf ("%s%s",
+	                            name,
+	                            suffix);
+
+	g_free (suffix);
+
+	return new_name;
+}
