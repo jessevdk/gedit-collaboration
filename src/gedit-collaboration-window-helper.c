@@ -493,11 +493,14 @@ sync_failed (InfSession       *session,
              GError           *error,
              gpointer          user_data)
 {
+	ChatData *cdata = user_data;
+
 	if (error != NULL)
 	{
 		g_warning ("%s", error->message);
 	}
 
+	gtk_widget_destroy (cdata->chat);
 	inf_session_close (session);
 
 	free_chat_data (user_data);
@@ -509,7 +512,6 @@ sync_completed (InfSession       *session,
                 gpointer          data)
 {
 	ChatData *cdata = (ChatData *)data;
-	GtkWidget *chat;
 	GeditPanel *panel;
 	GeditCollaborationBookmark *bookmark;
 	GeditCollaborationUser *user;
@@ -537,21 +539,15 @@ sync_completed (InfSession       *session,
 	}
 
 	chat_name = get_chat_name (cdata->helper, connection);
-
-	chat = inf_gtk_chat_new ();
-	gtk_widget_show (chat);
-
-	inf_gtk_chat_set_session (INF_GTK_CHAT (chat),
-	                          INF_CHAT_SESSION (session));
+	gtk_widget_show (cdata->chat);
 
 	panel = gedit_window_get_bottom_panel (cdata->helper->priv->window);
 
 	image = create_collaboration_image (cdata->helper);
-	gedit_panel_add_item (panel, chat, chat_name ? chat_name : _("Chat"), image);
-	g_object_set_data (G_OBJECT (connection), CHAT_DATA_KEY, chat);
+	gedit_panel_add_item (panel, cdata->chat, chat_name ? chat_name : _("Chat"), image);
+	g_object_set_data (G_OBJECT (connection), CHAT_DATA_KEY, cdata->chat);
 
 	cdata->user = gedit_collaboration_user_get_name (user);
-	cdata->chat = chat;
 
 	g_free (chat_name);
 	request_join (cdata, cdata->user);
@@ -565,6 +561,7 @@ subscribe_chat_cb (InfcNodeRequest *infcnoderequest,
 	InfcSessionProxy *proxy;
 	InfSession *session;
 	ChatData *cdata = (ChatData *) data;
+	GtkWidget *chat;
 
 	proxy = infc_browser_get_chat_session (cdata->browser);
 
@@ -576,6 +573,15 @@ subscribe_chat_cb (InfcNodeRequest *infcnoderequest,
 
 	session = infc_session_proxy_get_session (proxy);
 	cdata->proxy = proxy;
+
+	chat = inf_gtk_chat_new ();
+	cdata->chat = chat;
+
+	inf_gtk_chat_set_session (INF_GTK_CHAT (chat),
+	                          INF_CHAT_SESSION (session));
+
+	inf_gtk_chat_set_session (INF_GTK_CHAT (chat),
+	                          INF_CHAT_SESSION (session));
 
 	g_signal_connect_after (session,
 	                        "synchronization-failed",
