@@ -71,6 +71,115 @@ create_collaboration_image (GeditCollaborationWindowHelper *helper)
 }
 
 static void
+user_hue_data_func (GtkTreeViewColumn              *tree_column,
+                    GtkCellRenderer                *cell,
+                    GtkTreeModel                   *tree_model,
+                    GtkTreeIter                    *iter,
+                    GeditCollaborationWindowHelper *helper)
+{
+	InfTextUser *user;
+
+	gtk_tree_model_get (tree_model,
+	                    iter,
+	                    GEDIT_COLLABORATION_USER_STORE_COLUMN_USER,
+	                    &user,
+	                    -1);
+
+	if (INF_TEXT_IS_USER (user))
+		g_object_set (cell, "hue", inf_text_user_get_hue (user), NULL);
+	g_object_unref (user);
+}
+
+static void
+user_name_data_func (GtkTreeViewColumn              *tree_column,
+                     GtkCellRenderer                *cell,
+                     GtkTreeModel                   *tree_model,
+                     GtkTreeIter                    *iter,
+                     GeditCollaborationWindowHelper *helper)
+{
+	InfUser *user;
+	InfUserStatus status;
+	const gchar *name;
+	GtkStyle *style;
+	GdkColor *color;
+	PangoStyle user_style;
+
+	gtk_tree_model_get (tree_model,
+	                    iter,
+	                    GEDIT_COLLABORATION_USER_STORE_COLUMN_USER,
+	                    &user,
+	                    -1);
+
+	name = inf_user_get_name (user);
+	status = inf_user_get_status (user);
+
+	style = gtk_widget_get_style (helper->priv->tree_view_user_view);
+
+	if (status == INF_USER_ACTIVE)
+	{
+		color = &style->fg[GTK_STATE_NORMAL];
+		user_style = PANGO_STYLE_NORMAL;
+	}
+	else
+	{
+		color = &style->fg[GTK_STATE_INSENSITIVE];
+		user_style = PANGO_STYLE_ITALIC;
+	}
+
+	g_object_set (cell,
+	              "text", name,
+	              "style", user_style,
+	              "foreground-gdk", color,
+	              NULL);
+
+	g_object_unref (user);
+}
+
+static void
+build_user_view (GeditCollaborationWindowHelper *helper,
+		 GtkWidget                     **tree_view,
+		 GtkWidget                     **scrolled_window)
+{
+	GtkTreeViewColumn *column;
+	GtkCellRenderer *renderer;
+
+	*scrolled_window = gtk_scrolled_window_new (NULL, NULL);
+	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (*scrolled_window),
+	                                GTK_POLICY_AUTOMATIC,
+	                                GTK_POLICY_AUTOMATIC);
+
+	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (*scrolled_window),
+	                                     GTK_SHADOW_ETCHED_IN);
+
+	*tree_view = gtk_tree_view_new ();
+	gtk_widget_show (*tree_view);
+	gtk_tree_view_set_headers_visible (GTK_TREE_VIEW (*tree_view), FALSE);
+
+	column = gtk_tree_view_column_new ();
+	gtk_tree_view_append_column (GTK_TREE_VIEW (*tree_view), column);
+
+	renderer = gedit_collaboration_hue_renderer_new ();
+	gtk_tree_view_column_pack_start (column, renderer, FALSE);
+
+	gtk_tree_view_column_set_cell_data_func (column,
+	                                         renderer,
+	                                         (GtkTreeCellDataFunc)user_hue_data_func,
+	                                         helper,
+	                                         NULL);
+
+	renderer = gtk_cell_renderer_text_new ();
+	gtk_tree_view_column_pack_start (column, renderer, TRUE);
+
+	gtk_tree_view_column_set_cell_data_func (column,
+	                                         renderer,
+	                                         (GtkTreeCellDataFunc)user_name_data_func,
+	                                         helper,
+	                                         NULL);
+
+	gtk_container_add (GTK_CONTAINER (*scrolled_window), *tree_view);
+}
+
+static void
 gedit_collaboration_window_helper_finalize (GObject *object)
 {
 	GeditCollaborationWindowHelper *helper;
@@ -356,6 +465,7 @@ typedef struct _ChatData
 	GeditCollaborationWindowHelper *helper;
 	InfcBrowser *browser;
 	InfcSessionProxy *proxy;
+	GtkWidget *tree_view;
 	GtkWidget *chat;
 	const gchar *user;
 	gint name_failed_counter;
@@ -516,6 +626,11 @@ sync_completed (InfSession       *session,
 	GeditCollaborationBookmark *bookmark;
 	GeditCollaborationUser *user;
 	GtkWidget *image;
+	GtkWidget *hpaned;
+	GtkWidget *sw;
+	GtkWidget *tree_view;
+	GeditCollaborationUserStore *store;
+	InfUserTable *user_table;
 	gchar *chat_name;
 
 	g_signal_handlers_disconnect_by_func (session,
@@ -539,13 +654,29 @@ sync_completed (InfSession       *session,
 	}
 
 	chat_name = get_chat_name (cdata->helper, connection);
+
+	hpaned = gtk_hpaned_new ();
+	gtk_widget_show (hpaned);
+
+	gtk_paned_pack1 (GTK_PANED (hpaned), cdata->chat, TRUE, TRUE);
 	gtk_widget_show (cdata->chat);
+
+	build_user_view (cdata->helper, &tree_view, &sw);
+	gtk_widget_show (sw);
+	user_table = inf_session_get_user_table (session);
+
+	store = gedit_collaboration_user_store_new (user_table);
+
+	gtk_tree_view_set_model (GTK_TREE_VIEW (tree_view),
+				 GTK_TREE_MODEL (store));
+
+	gtk_paned_pack2 (GTK_PANED (hpaned), sw, TRUE, TRUE);
 
 	panel = gedit_window_get_bottom_panel (cdata->helper->priv->window);
 
 	image = create_collaboration_image (cdata->helper);
-	gedit_panel_add_item (panel, cdata->chat, chat_name ? chat_name : _("Chat"), image);
-	g_object_set_data (G_OBJECT (connection), CHAT_DATA_KEY, cdata->chat);
+	gedit_panel_add_item (panel, hpaned, chat_name ? chat_name : _("Chat"), image);
+	g_object_set_data (G_OBJECT (connection), CHAT_DATA_KEY, hpaned);
 
 	cdata->user = gedit_collaboration_user_get_name (user);
 
@@ -1311,117 +1442,6 @@ add_window_menu (GeditCollaborationWindowHelper *helper)
 }
 
 static void
-user_hue_data_func (GtkTreeViewColumn              *tree_column,
-                    GtkCellRenderer                *cell,
-                    GtkTreeModel                   *tree_model,
-                    GtkTreeIter                    *iter,
-                    GeditCollaborationWindowHelper *helper)
-{
-	InfTextUser *user;
-
-	gtk_tree_model_get (tree_model,
-	                    iter,
-	                    GEDIT_COLLABORATION_USER_STORE_COLUMN_USER,
-	                    &user,
-	                    -1);
-
-	g_object_set (cell, "hue", inf_text_user_get_hue (user), NULL);
-	g_object_unref (user);
-}
-
-static void
-user_name_data_func (GtkTreeViewColumn              *tree_column,
-                     GtkCellRenderer                *cell,
-                     GtkTreeModel                   *tree_model,
-                     GtkTreeIter                    *iter,
-                     GeditCollaborationWindowHelper *helper)
-{
-	InfUser *user;
-	InfUserStatus status;
-	const gchar *name;
-	GtkStyle *style;
-	GdkColor *color;
-	PangoStyle user_style;
-
-	gtk_tree_model_get (tree_model,
-	                    iter,
-	                    GEDIT_COLLABORATION_USER_STORE_COLUMN_USER,
-	                    &user,
-	                    -1);
-
-	name = inf_user_get_name (user);
-	status = inf_user_get_status (user);
-
-	style = gtk_widget_get_style (helper->priv->tree_view_user_view);
-
-	if (status == INF_USER_ACTIVE)
-	{
-		color = &style->fg[GTK_STATE_NORMAL];
-		user_style = PANGO_STYLE_NORMAL;
-	}
-	else
-	{
-		color = &style->fg[GTK_STATE_INSENSITIVE];
-		user_style = PANGO_STYLE_ITALIC;
-	}
-
-	g_object_set (cell,
-	              "text", name,
-	              "style", user_style,
-	              "foreground-gdk", color,
-	              NULL);
-
-	g_object_unref (user);
-}
-
-static void
-build_user_view (GeditCollaborationWindowHelper *helper)
-{
-	GtkWidget *tree_view;
-	GtkWidget *sw;
-	GtkTreeViewColumn *column;
-	GtkCellRenderer *renderer;
-
-	sw = gtk_scrolled_window_new (NULL, NULL);
-	gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (sw),
-	                                GTK_POLICY_AUTOMATIC,
-	                                GTK_POLICY_AUTOMATIC);
-
-	gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (sw),
-	                                     GTK_SHADOW_ETCHED_IN);
-
-	tree_view = gtk_tree_view_new ();
-	gtk_widget_show (tree_view);
-	gtk_tree_view_set_headers_visible (GTK_TREE_VIEW (tree_view), FALSE);
-
-	column = gtk_tree_view_column_new ();
-	gtk_tree_view_append_column (GTK_TREE_VIEW (tree_view), column);
-
-	renderer = gedit_collaboration_hue_renderer_new ();
-	gtk_tree_view_column_pack_start (column, renderer, FALSE);
-
-	gtk_tree_view_column_set_cell_data_func (column,
-	                                         renderer,
-	                                         (GtkTreeCellDataFunc)user_hue_data_func,
-	                                         helper,
-	                                         NULL);
-
-	renderer = gtk_cell_renderer_text_new ();
-	gtk_tree_view_column_pack_start (column, renderer, TRUE);
-
-	gtk_tree_view_column_set_cell_data_func (column,
-	                                         renderer,
-	                                         (GtkTreeCellDataFunc)user_name_data_func,
-	                                         helper,
-	                                         NULL);
-
-	gtk_container_add (GTK_CONTAINER (sw), tree_view);
-
-	helper->priv->scrolled_window_user_view = sw;
-	helper->priv->tree_view_user_view = tree_view;
-}
-
-static void
 on_paned_mapped (GtkWidget                      *paned,
                  GeditCollaborationWindowHelper *helper)
 {
@@ -1505,7 +1525,8 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	                         TRUE,
 	                         NULL);
 
-	build_user_view (helper);
+	build_user_view (helper, &helper->priv->tree_view_user_view,
+	                 &helper->priv->scrolled_window_user_view);
 	gtk_paned_add2 (GTK_PANED (paned), helper->priv->scrolled_window_user_view);
 
 	gtk_container_child_set (GTK_CONTAINER (paned),
