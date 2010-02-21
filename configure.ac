@@ -55,13 +55,15 @@ AM_GLIB_GNU_GETTEXT
 # Start of pkg-config checks
 # ================================================================
 GEDIT_REQUIRED_VERSION=2.28.0
+INFINITY_REQUIRED_VERSION=0.4.1
+
 PKG_CHECK_MODULES(GEDIT, [
 	gedit-2.20 >= $GEDIT_REQUIRED_VERSION,
 	gtk+-2.0 >= 2.18
 	gconf-2.0 >= 1.1.11
-	libinfinity-0.4
-	libinfgtk-0.4
-	libinftextgtk-0.4
+	libinfinity-0.4 >= $INFINITY_REQUIRED_VERSION
+	libinfgtk-0.4 >= $INFINITY_REQUIRED_VERSION
+	libinftextgtk-0.4 >= $INFINITY_REQUIRED_VERSION
 	libxml-2.0
 ])
 
