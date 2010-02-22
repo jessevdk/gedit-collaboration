@@ -87,6 +87,9 @@ user_hue_data_func (GtkTreeViewColumn              *tree_column,
 
 	if (INF_TEXT_IS_USER (user))
 		g_object_set (cell, "hue", inf_text_user_get_hue (user), NULL);
+	else
+		g_object_set (cell, "visible", FALSE, NULL);
+
 	g_object_unref (user);
 }
 
