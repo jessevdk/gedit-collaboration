@@ -38,7 +38,8 @@ struct _GeditCollaborationUserStoreClass {
 GType gedit_collaboration_user_store_get_type (void) G_GNUC_CONST;
 GType gedit_collaboration_user_store_register_type (GTypeModule *type_module);
 
-GeditCollaborationUserStore *gedit_collaboration_user_store_new (InfUserTable *user_table);
+GeditCollaborationUserStore *gedit_collaboration_user_store_new (InfUserTable *user_table,
+                                                                 gboolean      show_unavailable);
 InfUser *gedit_collaboration_user_store_get_user (GeditCollaborationUserStore *store,
                                                   GtkTreeIter                 *iter);
 

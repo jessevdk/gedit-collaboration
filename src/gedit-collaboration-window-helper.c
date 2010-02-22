@@ -85,11 +85,7 @@ user_hue_data_func (GtkTreeViewColumn              *tree_column,
 	                    &user,
 	                    -1);
 
-	if (INF_TEXT_IS_USER (user))
-		g_object_set (cell, "hue", inf_text_user_get_hue (user), NULL);
-	else
-		g_object_set (cell, "visible", FALSE, NULL);
-
+	g_object_set (cell, "hue", inf_text_user_get_hue (user), NULL);
 	g_object_unref (user);
 }
 
@@ -141,7 +137,8 @@ user_name_data_func (GtkTreeViewColumn              *tree_column,
 static void
 build_user_view (GeditCollaborationWindowHelper *helper,
 		 GtkWidget                     **tree_view,
-		 GtkWidget                     **scrolled_window)
+		 GtkWidget                     **scrolled_window,
+		 gboolean                        show_colors)
 {
 	GtkTreeViewColumn *column;
 	GtkCellRenderer *renderer;
@@ -161,14 +158,17 @@ build_user_view (GeditCollaborationWindowHelper *helper,
 	column = gtk_tree_view_column_new ();
 	gtk_tree_view_append_column (GTK_TREE_VIEW (*tree_view), column);
 
-	renderer = gedit_collaboration_hue_renderer_new ();
-	gtk_tree_view_column_pack_start (column, renderer, FALSE);
+	if (show_colors)
+	{
+		renderer = gedit_collaboration_hue_renderer_new ();
+		gtk_tree_view_column_pack_start (column, renderer, FALSE);
 
-	gtk_tree_view_column_set_cell_data_func (column,
-	                                         renderer,
-	                                         (GtkTreeCellDataFunc)user_hue_data_func,
-	                                         helper,
-	                                         NULL);
+		gtk_tree_view_column_set_cell_data_func (column,
+		                                         renderer,
+		                                         (GtkTreeCellDataFunc)user_hue_data_func,
+		                                         helper,
+		                                         NULL);
+	}
 
 	renderer = gtk_cell_renderer_text_new ();
 	gtk_tree_view_column_pack_start (column, renderer, TRUE);
@@ -664,11 +664,11 @@ sync_completed (InfSession       *session,
 	gtk_paned_pack1 (GTK_PANED (hpaned), cdata->chat, TRUE, TRUE);
 	gtk_widget_show (cdata->chat);
 
-	build_user_view (cdata->helper, &tree_view, &sw);
+	build_user_view (cdata->helper, &tree_view, &sw, FALSE);
 	gtk_widget_show (sw);
 	user_table = inf_session_get_user_table (session);
 
-	store = gedit_collaboration_user_store_new (user_table);
+	store = gedit_collaboration_user_store_new (user_table, FALSE);
 
 	gtk_tree_view_set_model (GTK_TREE_VIEW (tree_view),
 				 GTK_TREE_MODEL (store));
@@ -1529,7 +1529,8 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	                         NULL);
 
 	build_user_view (helper, &helper->priv->tree_view_user_view,
-	                 &helper->priv->scrolled_window_user_view);
+	                 &helper->priv->scrolled_window_user_view,
+	                 TRUE);
 	gtk_paned_add2 (GTK_PANED (paned), helper->priv->scrolled_window_user_view);
 
 	gtk_container_child_set (GTK_CONTAINER (paned),

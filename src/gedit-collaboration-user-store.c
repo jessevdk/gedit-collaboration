@@ -8,13 +8,18 @@
 struct _GeditCollaborationUserStorePrivate
 {
 	InfUserTable *user_table;
+	gboolean show_unavailable;
 };
 
 enum
 {
 	PROP_0,
-	PROP_USER_TABLE
+	PROP_USER_TABLE,
+	PROP_SHOW_UNAVAILABLE
 };
+
+static void remove_user (GeditCollaborationUserStore *store, InfUser *user, gboolean disconnect_status);
+static void add_user (GeditCollaborationUserStore *store, InfUser *user);
 
 GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationUserStore, gedit_collaboration_user_store, GTK_TYPE_LIST_STORE)
 
@@ -60,6 +65,30 @@ find_user (GeditCollaborationUserStore *store,
 }
 
 static void
+user_changed (GeditCollaborationUserStore *store,
+              InfUser                     *user)
+{
+	GtkTreeIter iter;
+
+	if (find_user (store, user, &iter))
+	{
+		GtkTreePath *path;
+
+		path = gtk_tree_model_get_path (GTK_TREE_MODEL (store),
+		                                &iter);
+
+		gtk_tree_model_row_changed (GTK_TREE_MODEL (store),
+		                            path,
+		                            &iter);
+		gtk_tree_path_free (path);
+	}
+	else
+	{
+		add_user (store, user);
+	}
+}
+
+static void
 on_user_notify (InfUser                     *user,
                 GParamSpec                  *spec,
                 GeditCollaborationUserStore *store)
@@ -67,23 +96,47 @@ on_user_notify (InfUser                     *user,
 	const gchar *name = g_param_spec_get_name (spec);
 
 	if (g_strcmp0 (name, "name") == 0 ||
-	    g_strcmp0 (name, "hue") == 0 ||
-	    g_strcmp0 (name, "status") == 0)
+	    g_strcmp0 (name, "hue") == 0)
 	{
-		GtkTreeIter iter;
-
-		if (find_user (store, user, &iter))
+		user_changed (store, user);
+	}
+	else if (g_strcmp0 (name, "status") == 0)
+	{
+		if (!store->priv->show_unavailable)
 		{
-			GtkTreePath *path;
-
-			path = gtk_tree_model_get_path (GTK_TREE_MODEL (store),
-			                                &iter);
-
-			gtk_tree_model_row_changed (GTK_TREE_MODEL (store),
-			                            path,
-			                            &iter);
-			gtk_tree_path_free (path);
+			if (inf_user_get_status (user) == INF_USER_UNAVAILABLE)
+			{
+				remove_user (store, user, FALSE);
+			}
+			else
+			{
+				user_changed (store, user);
+			}
 		}
+		else
+		{
+			user_changed (store, user);
+		}
+	}
+}
+
+static void
+remove_user (GeditCollaborationUserStore *store,
+             InfUser                     *user,
+             gboolean                     disconnect_status)
+{
+	GtkTreeIter iter;
+
+	if (find_user (store, user, &iter))
+	{
+		if (disconnect_status)
+		{
+			g_signal_handlers_disconnect_by_func (user,
+			                                      G_CALLBACK (on_user_notify),
+			                                      store);
+		}
+
+		gtk_list_store_remove (GTK_LIST_STORE (store), &iter);
 	}
 }
 
@@ -93,14 +146,18 @@ add_user (GeditCollaborationUserStore *store,
 {
 	GtkTreeIter iter;
 
-	gtk_list_store_append (GTK_LIST_STORE (store),
-	                       &iter);
+	if (store->priv->show_unavailable ||
+	    inf_user_get_status (user) != INF_USER_UNAVAILABLE)
+	{
+		gtk_list_store_append (GTK_LIST_STORE (store),
+			               &iter);
 
-	gtk_list_store_set (GTK_LIST_STORE (store),
-	                    &iter,
-	                    GEDIT_COLLABORATION_USER_STORE_COLUMN_USER,
-	                    user,
-	                    -1);
+		gtk_list_store_set (GTK_LIST_STORE (store),
+			            &iter,
+			            GEDIT_COLLABORATION_USER_STORE_COLUMN_USER,
+			            user,
+			            -1);
+	}
 
 	g_signal_connect (user,
 	                  "notify",
@@ -121,16 +178,7 @@ on_remove_user (InfUserTable                *table,
                 InfUser                     *user,
                 GeditCollaborationUserStore *store)
 {
-	GtkTreeIter iter;
-
-	if (find_user (store, user, &iter))
-	{
-		g_signal_handlers_disconnect_by_func (user,
-		                                      G_CALLBACK (on_user_notify),
-		                                      store);
-
-		gtk_list_store_remove (GTK_LIST_STORE (store), &iter);
-	}
+	remove_user (store, user, TRUE);
 }
 
 static void
@@ -167,6 +215,12 @@ gedit_collaboration_user_table_dispose (GObject *object)
 }
 
 static void
+refresh (GeditCollaborationUserStore *store)
+{
+
+}
+
+static void
 gedit_collaboration_user_store_set_property (GObject      *object,
                                              guint         prop_id,
                                              const GValue *value,
@@ -183,6 +237,13 @@ gedit_collaboration_user_store_set_property (GObject      *object,
 			}
 
 			self->priv->user_table = g_value_dup_object (value);
+
+			refresh (self);
+		break;
+		case PROP_SHOW_UNAVAILABLE:
+			self->priv->show_unavailable = g_value_get_boolean (value);
+
+			refresh (self);
 		break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -199,6 +260,9 @@ gedit_collaboration_user_store_get_property (GObject *object, guint prop_id, GVa
 	{
 		case PROP_USER_TABLE:
 			g_value_set_object (value, self->priv->user_table);
+		break;
+		case PROP_SHOW_UNAVAILABLE:
+			g_value_set_boolean (value, self->priv->show_unavailable);
 		break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -258,6 +322,14 @@ gedit_collaboration_user_store_class_init (GeditCollaborationUserStoreClass *kla
 	                                                      "User table",
 	                                                      INF_TYPE_USER_TABLE,
 	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+
+	g_object_class_install_property (object_class,
+	                                 PROP_SHOW_UNAVAILABLE,
+	                                 g_param_spec_boolean ("show-unavailable",
+	                                                       "Show Unavailable",
+	                                                       "Show unavailable",
+	                                                       TRUE,
+	                                                       G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationUserStorePrivate));
 }
@@ -320,10 +392,12 @@ gedit_collaboration_user_store_init (GeditCollaborationUserStore *self)
 }
 
 GeditCollaborationUserStore *
-gedit_collaboration_user_store_new (InfUserTable *user_table)
+gedit_collaboration_user_store_new (InfUserTable *user_table,
+                                    gboolean      show_unavailable)
 {
 	return g_object_new (GEDIT_COLLABORATION_TYPE_USER_STORE,
 	                     "user-table", user_table,
+	                     "show-unavailable", show_unavailable,
 	                     NULL);
 }
 

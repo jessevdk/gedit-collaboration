@@ -703,7 +703,8 @@ on_synchronization_complete (InfSession       *session,
 	g_timer_destroy (subscription->progress_timer);
 	subscription->progress_timer = NULL;
 
-	subscription->user_store = gedit_collaboration_user_store_new (inf_session_get_user_table (session));
+	subscription->user_store = gedit_collaboration_user_store_new (inf_session_get_user_table (session),
+	                                                               TRUE);
 	request_join (subscription, NULL);
 
 	g_signal_emit (subscription->manager, signals[CHANGED], 0, subscription->tab);
