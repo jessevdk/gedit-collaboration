@@ -5,7 +5,6 @@
 #include "gedit-collaboration.h"
 
 #include <config.h>
-#include <gedit/gedit-plugin.h>
 #include <glib/gi18n-lib.h>
 
 #include "gedit-collaboration-color-button.h"
@@ -26,10 +25,11 @@ struct _GeditCollaborationBookmarkDialogPrivate
 
 static void buildable_iface_init (GtkBuildableIface *iface);
 
-GEDIT_PLUGIN_DEFINE_TYPE_WITH_CODE (GeditCollaborationBookmarkDialog, \
-                                    gedit_collaboration_bookmark_dialog, \
-                                    GTK_TYPE_DIALOG,\
-                                    G_IMPLEMENT_INTERFACE (GTK_TYPE_BUILDABLE, buildable_iface_init));
+G_DEFINE_DYNAMIC_TYPE_EXTENDED (GeditCollaborationBookmarkDialog,
+                                gedit_collaboration_bookmark_dialog,
+                                GTK_TYPE_DIALOG,
+                                0,
+                                G_IMPLEMENT_INTERFACE (GTK_TYPE_BUILDABLE, buildable_iface_init));
 
 static GtkBuildableIface parent_iface;
 
@@ -185,6 +185,11 @@ gedit_collaboration_bookmark_dialog_class_init (GeditCollaborationBookmarkDialog
 }
 
 static void
+gedit_collaboration_bookmark_dialog_class_finalize (GeditCollaborationBookmarkDialogClass *klass)
+{
+}
+
+static void
 gedit_collaboration_bookmark_dialog_init (GeditCollaborationBookmarkDialog *self)
 {
 	self->priv = GEDIT_COLLABORATION_BOOKMARK_DIALOG_GET_PRIVATE (self);
@@ -280,4 +285,10 @@ gedit_collaboration_bookmark_dialog_new (const gchar                *data_dir,
 	}
 
 	return ret;
+}
+
+void
+_gedit_collaboration_bookmark_dialog_register_type (GTypeModule *type_module)
+{
+	gedit_collaboration_bookmark_dialog_register_type (type_module);
 }

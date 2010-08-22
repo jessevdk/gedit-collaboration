@@ -1,7 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
 #include "gedit-collaboration-manager.h"
-#include <gedit/gedit-plugin.h>
 #include <libinfinity/adopted/inf-adopted-session.h>
 #include <libinftext/inf-text-session.h>
 #include <libinftext/inf-text-buffer.h>
@@ -83,7 +82,9 @@ static guint signals[NUM_SIGNALS] = {0,};
 static void request_join (GeditCollaborationSubscription *subscription, const gchar *name);
 static void gedit_collaboration_subscription_free (GeditCollaborationSubscription *subscription);
 
-GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationManager, gedit_collaboration_manager, G_TYPE_OBJECT)
+G_DEFINE_DYNAMIC_TYPE (GeditCollaborationManager,
+                       gedit_collaboration_manager,
+                       G_TYPE_OBJECT);
 
 static void
 gedit_collaboration_manager_finalize (GObject *object)
@@ -185,6 +186,12 @@ gedit_collaboration_manager_class_init (GeditCollaborationManagerClass *klass)
 		              GEDIT_TYPE_TAB);
 
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationManagerPrivate));
+}
+
+static void
+gedit_collaboration_manager_class_finalize (GeditCollaborationManagerClass *klass)
+{
+
 }
 
 static void
@@ -468,7 +475,6 @@ handle_error (GeditCollaborationSubscription *subscription,
 {
 	/* Show the error nicely in the document, and cancel the session,
 	   cleanup, etc */
-#ifndef GEDIT_STABLE
 	if (subscription->tab)
 	{
 		GtkWidget *message_area;
@@ -489,7 +495,6 @@ handle_error (GeditCollaborationSubscription *subscription,
 	}
 	else
 	{
-#endif
 		gchar *primary;
 		gchar *escaped;
 		gchar *secondary;
@@ -517,10 +522,7 @@ handle_error (GeditCollaborationSubscription *subscription,
 		                  NULL);
 
 		gtk_widget_show (dialog);
-
-#ifndef GEDIT_STABLE
 	}
-#endif
 
 	/* This will also clean up the session */
 	close_subscription (subscription);
@@ -645,7 +647,6 @@ request_join (GeditCollaborationSubscription *subscription,
 	                        subscription);
 }
 
-#ifndef GEDIT_STABLE
 static gchar *
 guess_content_type (GeditCollaborationSubscription *subscription)
 {
@@ -671,7 +672,6 @@ guess_content_type (GeditCollaborationSubscription *subscription)
 	g_free (text);
 	return content_type;
 }
-#endif
 
 static void
 on_synchronization_complete (InfSession       *session,
@@ -688,7 +688,6 @@ on_synchronization_complete (InfSession       *session,
 	                             subscription->signal_handlers[SYNCHRONIZATION_PROGRESS]);
 	subscription->signal_handlers[SYNCHRONIZATION_PROGRESS] = 0;
 
-#ifndef GEDIT_STABLE
 	gedit_tab_set_info_bar (subscription->tab, NULL);
 
 	/* Now guess with the content too */
@@ -696,7 +695,6 @@ on_synchronization_complete (InfSession       *session,
 	gedit_document_set_content_type (gedit_tab_get_document (subscription->tab),
 	                                 content_type);
 	g_free (content_type);
-#endif
 
 	subscription->progress_area = NULL;
 
@@ -723,7 +721,6 @@ on_synchronization_progress (InfSession       *session,
                              gdouble           progress,
                              GeditCollaborationSubscription     *subscription)
 {
-#ifndef GEDIT_STABLE
 	if (subscription->progress_area != NULL)
 	{
 		GeditCollaborationDocumentMessage *msg;
@@ -750,7 +747,6 @@ on_synchronization_progress (InfSession       *session,
 		gedit_tab_set_info_bar (subscription->tab,
 		                        subscription->progress_area);
 	}
-#endif
 }
 
 static void
@@ -822,21 +818,17 @@ on_subscribe_request_finished (InfcNodeRequest *request,
 
 	name = infc_browser_iter_get_name (subscription->browser, &subscription->iter);
 
-#ifndef GEDIT_STABLE
 	/* First guess the content type just from the name */
 	content_type = g_content_type_guess (name, NULL, 0, NULL);
 	gedit_document_set_content_type (doc, content_type);
 	g_free (content_type);
-#endif
 
 	gtk_source_buffer_begin_not_undoable_action (GTK_SOURCE_BUFFER (doc));
 	gtk_text_buffer_begin_user_action (GTK_TEXT_BUFFER (doc));
 
 	subscription->loading = TRUE;
 
-#ifndef GEDIT_STABLE
 	gedit_document_set_short_name_for_display (doc, name);
-#endif
 
 	subscription->signal_handlers[STYLE_SET] =
 		g_signal_connect (view,
@@ -1002,4 +994,10 @@ GeditCollaborationUserStore *
 gedit_collaboration_subscription_get_user_store (GeditCollaborationSubscription *subscription)
 {
 	return subscription->user_store;
+}
+
+void
+_gedit_collaboration_manager_register_type (GTypeModule *type_module)
+{
+	gedit_collaboration_manager_register_type (type_module);
 }

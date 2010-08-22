@@ -2,7 +2,6 @@
 
 #include "gedit-collaboration-bookmarks.h"
 
-#include <gedit/gedit-plugin.h>
 #include <libxml/tree.h>
 #include <libxml/parser.h>
 #include <libxml/xpath.h>
@@ -38,8 +37,9 @@ enum
 static guint bookmarks_signals[NUM_SIGNALS] = {0,};
 static GeditCollaborationBookmarks *bookmarks_default;
 
-GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationBookmarks, gedit_collaboration_bookmarks, \
-                          G_TYPE_OBJECT)
+G_DEFINE_DYNAMIC_TYPE (GeditCollaborationBookmarks,
+                       gedit_collaboration_bookmarks,
+                       G_TYPE_OBJECT)
 
 static void
 save_bookmark_property (xmlDocPtr    doc,
@@ -406,6 +406,11 @@ gedit_collaboration_bookmarks_class_init (GeditCollaborationBookmarksClass *klas
 }
 
 static void
+gedit_collaboration_bookmarks_class_finalize (GeditCollaborationBookmarksClass *klass)
+{
+}
+
+static void
 gedit_collaboration_bookmarks_init (GeditCollaborationBookmarks *self)
 {
 	self->priv = GEDIT_COLLABORATION_BOOKMARKS_GET_PRIVATE (self);
@@ -481,4 +486,10 @@ gedit_collaboration_bookmarks_remove (GeditCollaborationBookmarks *bookmarks,
 		g_signal_emit (bookmarks, bookmarks_signals[REMOVED], 0, bookmark);
 		g_object_unref (bookmark);
 	}
+}
+
+void
+_gedit_collaboration_bookmarks_register_type (GTypeModule *type_module)
+{
+	gedit_collaboration_bookmarks_register_type (type_module);
 }

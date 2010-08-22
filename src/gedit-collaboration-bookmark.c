@@ -1,7 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
 #include "gedit-collaboration-bookmark.h"
-#include <gedit/gedit-plugin.h>
 #include "gedit-collaboration.h"
 
 #define GEDIT_COLLABORATION_BOOKMARK_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GEDIT_COLLABORATION_TYPE_BOOKMARK, GeditCollaborationBookmarkPrivate))
@@ -24,7 +23,9 @@ enum {
 	PROP_USER
 };
 
-GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationBookmark, gedit_collaboration_bookmark, G_TYPE_OBJECT)
+G_DEFINE_DYNAMIC_TYPE (GeditCollaborationBookmark,
+                       gedit_collaboration_bookmark,
+                       G_TYPE_OBJECT)
 
 static void
 gedit_collaboration_bookmark_finalize (GObject *object)
@@ -170,6 +171,11 @@ gedit_collaboration_bookmark_class_init (GeditCollaborationBookmarkClass *klass)
 }
 
 static void
+gedit_collaboration_bookmark_class_finalize (GeditCollaborationBookmarkClass *klass)
+{
+}
+
+static void
 gedit_collaboration_bookmark_init (GeditCollaborationBookmark *self)
 {
 	self->priv = GEDIT_COLLABORATION_BOOKMARK_GET_PRIVATE (self);
@@ -236,4 +242,10 @@ gedit_collaboration_bookmark_get_user (GeditCollaborationBookmark *bookmark)
 {
 	g_return_val_if_fail (GEDIT_COLLABORATION_IS_BOOKMARK (bookmark), NULL);
 	return bookmark->priv->user;
+}
+
+void
+_gedit_collaboration_bookmark_register_type (GTypeModule *type_module)
+{
+	gedit_collaboration_bookmark_register_type (type_module);
 }

@@ -1,6 +1,6 @@
 [Gedit Plugin]
 Module=collaboration
-IAge=2
+IAge=3
 _Name=Collaboration
 _Description=Collaboration plugin
 Authors=Jesse van den Kieboom <jessevdk@gnome.org>

@@ -1,5 +1,7 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
+#include <gedit/gedit-window-activatable.h>
+
 #include "gedit-collaboration-window-helper.h"
 #include "gedit-collaboration-bookmarks.h"
 #include "gedit-collaboration-bookmark-dialog.h"
@@ -24,12 +26,23 @@
 enum
 {
 	PROP_0,
-	PROP_WINDOW,
-	PROP_DATA_DIR
+	PROP_WINDOW
 };
 
-GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationWindowHelper, gedit_collaboration_window_helper,
-                          G_TYPE_OBJECT)
+static void gedit_window_activatable_iface_init (GeditWindowActivatableInterface *iface);
+
+G_DEFINE_DYNAMIC_TYPE_EXTENDED (GeditCollaborationWindowHelper,
+                                gedit_collaboration_window_helper,
+                                PEAS_TYPE_EXTENSION_BASE,
+                                0,
+                                G_IMPLEMENT_INTERFACE_DYNAMIC (GEDIT_TYPE_WINDOW_ACTIVATABLE,
+                                                               gedit_window_activatable_iface_init))
+
+static void
+gedit_window_activatable_iface_init (GeditWindowActivatableInterface *iface)
+{
+	/* TODO */
+}
 
 static GdkPixbuf *
 try_create_icon (const gchar *data_dir)
@@ -52,8 +65,11 @@ create_collaboration_image (GeditCollaborationWindowHelper *helper)
 {
 	GdkPixbuf *icon;
 	GtkWidget *image;
+	gchar *datadir;
 
-	icon = try_create_icon (helper->priv->data_dir);
+	datadir = peas_extension_base_get_data_dir (PEAS_EXTENSION_BASE (helper));
+	icon = try_create_icon (datadir);
+	g_free (datadir);
 
 	if (icon == NULL)
 	{
@@ -324,10 +340,6 @@ gedit_collaboration_window_helper_set_property (GObject      *object,
 		case PROP_WINDOW:
 			set_window (self, g_value_get_object (value));
 		break;
-		case PROP_DATA_DIR:
-			g_free (self->priv->data_dir);
-			self->priv->data_dir = g_value_dup_string (value);
-		break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
@@ -346,9 +358,6 @@ gedit_collaboration_window_helper_get_property (GObject    *object,
 	{
 		case PROP_WINDOW:
 			g_value_set_object (value, self->priv->window);
-		break;
-		case PROP_DATA_DIR:
-			g_value_set_string (value, self->priv->data_dir);
 		break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -678,7 +687,11 @@ sync_completed (InfSession       *session,
 	panel = gedit_window_get_bottom_panel (cdata->helper->priv->window);
 
 	image = create_collaboration_image (cdata->helper);
-	gedit_panel_add_item (panel, hpaned, chat_name ? chat_name : _("Chat"), image);
+	gedit_panel_add_item (panel,
+	                      hpaned,
+			      "GeditCollaborationChat",
+			      chat_name ? chat_name : _("Chat"),
+			      image);
 	g_object_set_data (G_OBJECT (connection), CHAT_DATA_KEY, hpaned);
 
 	cdata->user = gedit_collaboration_user_get_name (user);
@@ -874,9 +887,12 @@ show_password_dialog (GeditCollaborationWindowHelper *helper,
 	gchar *name;
 	gchar *username;
 	gchar *remotename;
+	gchar *datadir;
 
-	builder = gedit_collaboration_create_builder (helper->priv->data_dir,
+	datadir = peas_extension_base_get_data_dir (PEAS_EXTENSION_BASE (helper));
+	builder = gedit_collaboration_create_builder (datadir,
 	                                              "gedit-collaboration-password-dialog.ui");
+	g_free (datadir);
 
 	if (!builder)
 	{
@@ -1471,9 +1487,11 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	GtkWidget *image;
 	GtkBuilder *builder;
 	GtkWidget *paned;
+	gchar *datadir;
 
-	builder = gedit_collaboration_create_builder (helper->priv->data_dir,
-	                                              XML_UI_FILE);
+	datadir = peas_extension_base_get_data_dir (PEAS_EXTENSION_BASE (helper));
+	builder = gedit_collaboration_create_builder (datadir, XML_UI_FILE);
+	g_free (datadir);
 
 	if (!builder)
 	{
@@ -1539,7 +1557,12 @@ build_ui (GeditCollaborationWindowHelper *helper)
 	                         FALSE,
 	                         NULL);
 
-	gedit_panel_add_item (panel, paned, _("Collaboration"), image);
+	gedit_panel_add_item (panel,
+	                      paned,
+			      "GeditCollaborationPanel",
+			      _("Collaboration"),
+			      image);
+
 	helper->priv->panel_widget = paned;
 
 	g_signal_connect_after (paned,
@@ -1603,31 +1626,18 @@ gedit_collaboration_window_helper_class_init (GeditCollaborationWindowHelperClas
 	                                                      GEDIT_TYPE_WINDOW,
 	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
 
-	g_object_class_install_property (object_class,
-	                                 PROP_DATA_DIR,
-	                                 g_param_spec_string ("data-dir",
-	                                                      "Data Dir",
-	                                                      "Data dir",
-	                                                      NULL,
-	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
-
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationWindowHelperPrivate));
+}
+
+static void
+gedit_collaboration_window_helper_class_finalize (GeditCollaborationWindowHelperClass *klass)
+{
 }
 
 static void
 gedit_collaboration_window_helper_init (GeditCollaborationWindowHelper *self)
 {
 	self->priv = GEDIT_COLLABORATION_WINDOW_HELPER_GET_PRIVATE (self);
-}
-
-GeditCollaborationWindowHelper *
-gedit_collaboration_window_helper_new (GeditWindow *window,
-                                       const gchar *data_dir)
-{
-	return g_object_new (GEDIT_TYPE_COLLABORATION_WINDOW_HELPER,
-	                     "window", window,
-	                     "data-dir", data_dir,
-	                     NULL);
 }
 
 void
@@ -1649,4 +1659,10 @@ gedit_collaboration_window_helper_update_ui (GeditCollaborationWindowHelper *hel
 	                                      "CollaborationClearColorsAction");
 
 	gtk_action_set_sensitive (action, sensitive);
+}
+
+void
+_gedit_collaboration_window_helper_register_type (GTypeModule *module)
+{
+	gedit_collaboration_window_helper_register_type (module);
 }

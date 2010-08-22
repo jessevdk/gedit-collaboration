@@ -22,6 +22,10 @@
  * Boston, MA  02110-1301  USA
  */
 
+#include <gedit/gedit-app-activatable.h>
+#include <libpeas-gtk/peas-gtk-configurable.h>
+#include <gedit/gedit-app.h>
+
 #include "gedit-collaboration-plugin.h"
 #include "gedit-collaboration-window-helper.h"
 #include "gedit-collaboration-bookmarks.h"
@@ -41,25 +45,121 @@
 
 #define WINDOW_DATA_KEY "GeditCollaborationPluginWindowData"
 
+static GeditCollaborationPlugin *plugin_instance = 0;
+
 struct _GeditCollaborationPluginPrivate
 {
+	GeditApp *app;
+
 	GtkWidget *dialog_configuration;
 	GtkEntry *entry_name;
 	GeditCollaborationColorButton *color_button_hue;
 };
 
-GEDIT_PLUGIN_REGISTER_TYPE_WITH_CODE (GeditCollaborationPlugin, gedit_collaboration_plugin, \
-	gedit_collaboration_window_helper_register_type (type_module); \
-	gedit_collaboration_manager_register_type (type_module); \
-	gedit_collaboration_bookmark_register_type (type_module); \
-	gedit_collaboration_bookmarks_register_type (type_module); \
-	gedit_collaboration_bookmark_dialog_register_type (type_module); \
-	gedit_collaboration_color_button_register_type (type_module); \
-	gedit_collaboration_document_message_register_type (type_module); \
-	gedit_collaboration_undo_manager_register_type (type_module); \
-	gedit_collaboration_user_store_register_type (type_module); \
-	gedit_collaboration_hue_renderer_register_type (type_module); \
+/* Properties */
+enum
+{
+	PROP_0,
+	PROP_APP
+};
+
+static void gedit_app_activatable_iface_init (GeditAppActivatableInterface *iface);
+static void peas_gtk_configurable_iface_init (PeasGtkConfigurableInterface *iface);
+
+G_DEFINE_DYNAMIC_TYPE_EXTENDED (GeditCollaborationPlugin,
+                                gedit_collaboration_plugin,
+                                PEAS_TYPE_EXTENSION_BASE,
+                                0,
+                                G_IMPLEMENT_INTERFACE_DYNAMIC (GEDIT_TYPE_APP_ACTIVATABLE,
+                                                               gedit_app_activatable_iface_init) \
+                                G_IMPLEMENT_INTERFACE_DYNAMIC (PEAS_GTK_TYPE_CONFIGURABLE,
+                                                               peas_gtk_configurable_iface_init) \
+                                _gedit_collaboration_window_helper_register_type (type_module); \
+                                _gedit_collaboration_manager_register_type (type_module); \
+                                _gedit_collaboration_bookmark_register_type (type_module); \
+                                _gedit_collaboration_bookmarks_register_type (type_module); \
+                                _gedit_collaboration_bookmark_dialog_register_type (type_module); \
+                                _gedit_collaboration_color_button_register_type (type_module); \
+                                _gedit_collaboration_document_message_register_type (type_module); \
+                                _gedit_collaboration_undo_manager_register_type (type_module); \
+                                _gedit_collaboration_user_store_register_type (type_module); \
+                                _gedit_collaboration_hue_renderer_register_type (type_module); \
 )
+
+static void
+gedit_app_activatable_iface_init (GeditAppActivatableInterface *iface)
+{
+}
+
+static void
+on_entry_name_focus_out (GtkEntry               *entry,
+                         GdkEventFocus          *event,
+                         GeditCollaborationUser *user)
+{
+	const gchar *name = gtk_entry_get_text (entry);
+	gedit_collaboration_user_set_name (user, name);
+}
+
+static void
+on_color_button_hue_changed (GeditCollaborationColorButton *button,
+                             GParamSpec                    *spec,
+                             GeditCollaborationUser        *user)
+{
+	gedit_collaboration_user_set_hue (user,
+	                                  gedit_collaboration_color_button_get_hue (button));
+}
+
+static GtkWidget *
+gedit_collaboration_plugin_create_configure_widget (PeasGtkConfigurable *configurable)
+{
+	GtkBuilder *builder;
+	gchar *datadir;
+	GtkEntry *entry;
+	GeditCollaborationColorButton *color_button;
+	GeditCollaborationUser *user;
+	GtkWidget *ret;
+
+	datadir = peas_extension_base_get_data_dir (PEAS_EXTENSION_BASE (configurable));
+	builder = gedit_collaboration_create_builder (datadir,
+	                                              "gedit-collaboration-configuration.ui");
+	g_free (datadir);
+
+	if (!builder)
+	{
+		return NULL;
+	}
+
+	user = gedit_collaboration_user_get_default ();
+
+	entry = GTK_ENTRY (gtk_builder_get_object (builder, "entry_name"));
+	g_signal_connect (entry,
+	                  "focus-out-event",
+	                  G_CALLBACK (on_entry_name_focus_out),
+	                  user);
+
+	color_button = GEDIT_COLLABORATION_COLOR_BUTTON (gtk_builder_get_object (builder, "color_button_hue"));
+	g_signal_connect (color_button,
+	                  "notify::hue",
+	                  G_CALLBACK (on_color_button_hue_changed),
+	                  user);
+
+	gtk_entry_set_text (entry,
+	                    gedit_collaboration_user_get_name (user));
+
+	gedit_collaboration_color_button_set_hue (color_button,
+	                                          gedit_collaboration_user_get_hue (user));
+
+	ret = g_object_ref (gtk_builder_get_object (builder, "vbox_configuration"));
+	g_object_unref (builder);
+
+	return ret;
+}
+
+static void
+peas_gtk_configurable_iface_init (PeasGtkConfigurableInterface *iface)
+{
+	iface->create_configure_widget = gedit_collaboration_plugin_create_configure_widget;
+}
 
 static void
 gedit_collaboration_plugin_finalize (GObject *object)
@@ -68,38 +168,13 @@ gedit_collaboration_plugin_finalize (GObject *object)
 }
 
 static void
-plugin_activate_impl (GeditPlugin *plugin,
-                      GeditWindow *window)
-{
-	GeditCollaborationWindowHelper *helper;
-
-	helper = gedit_collaboration_window_helper_new (window,
-	                                                gedit_plugin_get_data_dir (plugin));
-
-	if (helper != NULL)
-	{
-		g_object_set_data_full (G_OBJECT (window),
-		                        WINDOW_DATA_KEY,
-		                        helper,
-		                        (GDestroyNotify)g_object_unref);
-	}
-}
-
-static void
-plugin_deactivate_impl (GeditPlugin *plugin,
-                        GeditWindow *window)
-{
-	g_object_set_data (G_OBJECT (window), WINDOW_DATA_KEY, NULL);
-}
-
-static void
 gedit_collaboration_plugin_constructed (GObject *object)
 {
 	gchar *filename;
 
-	filename = g_build_filename (g_get_home_dir (),
-	                             ".gnome2",
+	filename = g_build_filename (g_get_user_config_dir (),
 	                             "gedit",
+	                             "plugins",
 	                             "collaboration",
 	                             "bookmarks.xml",
 	                             NULL);
@@ -107,88 +182,62 @@ gedit_collaboration_plugin_constructed (GObject *object)
 	gedit_collaboration_bookmarks_initialize (filename);
 }
 
-static void
-on_dialog_configuration_response (GtkWidget                *widget,
-                                  gint                      responseid,
-                                  GeditCollaborationPlugin *plugin)
+static GObject *
+gedit_collaboration_plugin_constructor (GType                  type,
+                                        guint                  n_parameters,
+                                        GObjectConstructParam *parameters)
 {
-	GeditCollaborationUser *user;
-	const gchar *name;
+	GObject *ret;
 
-	user = gedit_collaboration_user_get_default ();
-	name = gtk_entry_get_text (plugin->priv->entry_name);
-
-	if (*name)
+	if (plugin_instance != NULL)
 	{
-		gedit_collaboration_user_set_name (user, name);
+		return g_object_ref (plugin_instance);
 	}
 
-	gedit_collaboration_user_set_hue (user,
-	                                  gedit_collaboration_color_button_get_hue (plugin->priv->color_button_hue));
+	ret = G_OBJECT_CLASS (gedit_collaboration_plugin_parent_class)->constructor (type,
+	                                                                             n_parameters,
+	                                                                             parameters);
 
-	gtk_widget_destroy (widget);
-	plugin->priv->dialog_configuration = NULL;
+	g_object_add_weak_pointer (ret,
+	                           (gpointer *)&ret);
+	return ret;
 }
 
 static void
-create_configuration_dialog (GeditCollaborationPlugin *plugin)
+gedit_collaboration_plugin_set_property (GObject      *object,
+                                         guint         prop_id,
+                                         const GValue *value,
+                                         GParamSpec   *pspec)
 {
-	GtkBuilder *builder;
+	GeditCollaborationPlugin *self = GEDIT_COLLABORATION_PLUGIN (object);
 
-	builder = gedit_collaboration_create_builder (gedit_plugin_get_data_dir (GEDIT_PLUGIN (plugin)),
-	                                              "gedit-collaboration-configuration.ui");
-
-	if (!builder)
+	switch (prop_id)
 	{
-		return;
+		case PROP_APP:
+			self->priv->app = g_value_get_object (value);
+		break;
+		default:
+			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+		break;
 	}
-
-	plugin->priv->dialog_configuration = GTK_WIDGET (gtk_builder_get_object (builder, "dialog_configuration"));
-	plugin->priv->entry_name = GTK_ENTRY (gtk_builder_get_object (builder, "entry_name"));
-	plugin->priv->color_button_hue = GEDIT_COLLABORATION_COLOR_BUTTON (gtk_builder_get_object (builder, "color_button_hue"));
-}
-
-static GtkWidget *
-plugin_create_configure_dialog_impl (GeditPlugin *plugin)
-{
-	GeditCollaborationPlugin *self = GEDIT_COLLABORATION_PLUGIN (plugin);
-	GeditCollaborationUser *user = gedit_collaboration_user_get_default ();
-
-	if (self->priv->dialog_configuration == NULL)
-	{
-		create_configuration_dialog (self);
-
-		if (!self->priv->dialog_configuration)
-		{
-			return NULL;
-		}
-
-		g_signal_connect (self->priv->dialog_configuration,
-		                  "response",
-		                  G_CALLBACK (on_dialog_configuration_response),
-		                  self);
-	}
-
-	gtk_entry_set_text (self->priv->entry_name,
-	                    gedit_collaboration_user_get_name (user));
-
-	gedit_collaboration_color_button_set_hue (self->priv->color_button_hue,
-	                                          gedit_collaboration_user_get_hue (user));
-
-	return self->priv->dialog_configuration;
 }
 
 static void
-plugin_update_ui_impl (GeditPlugin *plugin,
-                       GeditWindow *window)
+gedit_collaboration_plugin_get_property (GObject    *object,
+                                         guint       prop_id,
+                                         GValue     *value,
+                                         GParamSpec *pspec)
 {
-	GeditCollaborationWindowHelper *helper;
+	GeditCollaborationPlugin *self = GEDIT_COLLABORATION_PLUGIN (object);
 
-	helper = g_object_get_data (G_OBJECT (window), WINDOW_DATA_KEY);
-
-	if (helper)
+	switch (prop_id)
 	{
-		gedit_collaboration_window_helper_update_ui (helper);
+		case PROP_APP:
+			g_value_set_object (value, self->priv->app);
+		break;
+		default:
+			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+		break;
 	}
 }
 
@@ -196,17 +245,29 @@ static void
 gedit_collaboration_plugin_class_init (GeditCollaborationPluginClass *klass)
 {
 	GObjectClass *object_class = G_OBJECT_CLASS (klass);
-	GeditPluginClass *plugin_class = GEDIT_PLUGIN_CLASS (klass);
 
 	object_class->finalize = gedit_collaboration_plugin_finalize;
-	object_class->constructed = gedit_collaboration_plugin_constructed;
 
-	plugin_class->activate = plugin_activate_impl;
-	plugin_class->deactivate = plugin_deactivate_impl;
-	plugin_class->create_configure_dialog = plugin_create_configure_dialog_impl;
-	plugin_class->update_ui = plugin_update_ui_impl;
+	object_class->get_property = gedit_collaboration_plugin_get_property;
+	object_class->set_property = gedit_collaboration_plugin_set_property;
+
+	object_class->constructed = gedit_collaboration_plugin_constructed;
+	object_class->constructor = gedit_collaboration_plugin_constructor;
 
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationPluginPrivate));
+
+	g_object_class_install_property (object_class,
+	                                 PROP_APP,
+	                                 g_param_spec_object ("app",
+	                                                      "App",
+	                                                      "App",
+	                                                      GEDIT_TYPE_APP,
+	                                                      G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+}
+
+static void
+gedit_collaboration_plugin_class_finalize (GeditCollaborationPluginClass *klass)
+{
 }
 
 static void
@@ -215,4 +276,18 @@ gedit_collaboration_plugin_init (GeditCollaborationPlugin *plugin)
 	plugin->priv = GEDIT_COLLABORATION_PLUGIN_GET_PRIVATE (plugin);
 
 	inf_init (NULL);
+}
+
+G_MODULE_EXPORT void
+peas_register_types (PeasObjectModule *module)
+{
+	gedit_collaboration_plugin_register_type (G_TYPE_MODULE (module));
+
+	peas_object_module_register_extension_type (module,
+	                                            GEDIT_TYPE_APP_ACTIVATABLE,
+	                                            GEDIT_TYPE_COLLABORATION_PLUGIN);
+
+	peas_object_module_register_extension_type (module,
+	                                            PEAS_GTK_TYPE_CONFIGURABLE,
+	                                            GEDIT_TYPE_COLLABORATION_PLUGIN);
 }

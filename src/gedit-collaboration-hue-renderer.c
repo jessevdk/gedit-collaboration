@@ -1,7 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
 #include "gedit-collaboration-hue-renderer.h"
-#include <gedit/gedit-plugin.h>
 #include "gedit-collaboration.h"
 
 #define GEDIT_COLLABORATION_HUE_RENDERER_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GEDIT_TYPE_COLLABORATION_HUE_RENDERER, GeditCollaborationHueRendererPrivate))
@@ -17,7 +16,9 @@ enum
 	PROP_HUE
 };
 
-GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationHueRenderer, gedit_collaboration_hue_renderer, GTK_TYPE_CELL_RENDERER)
+G_DEFINE_DYNAMIC_TYPE (GeditCollaborationHueRenderer,
+                       gedit_collaboration_hue_renderer,
+                       GTK_TYPE_CELL_RENDERER)
 
 static void
 gedit_collaboration_hue_renderer_finalize (GObject *object)
@@ -195,6 +196,11 @@ gedit_collaboration_hue_renderer_class_init (GeditCollaborationHueRendererClass 
 }
 
 static void
+gedit_collaboration_hue_renderer_class_finalize (GeditCollaborationHueRendererClass *klass)
+{
+}
+
+static void
 gedit_collaboration_hue_renderer_init (GeditCollaborationHueRenderer *self)
 {
 	self->priv = GEDIT_COLLABORATION_HUE_RENDERER_GET_PRIVATE (self);
@@ -204,4 +210,10 @@ GtkCellRenderer *
 gedit_collaboration_hue_renderer_new ()
 {
 	return g_object_new (GEDIT_TYPE_COLLABORATION_HUE_RENDERER, NULL);
+}
+
+void
+_gedit_collaboration_hue_renderer_register_type (GTypeModule *type_module)
+{
+	gedit_collaboration_hue_renderer_register_type (type_module);
 }

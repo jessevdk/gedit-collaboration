@@ -26,18 +26,20 @@ typedef struct _GeditCollaborationManagerPrivate	GeditCollaborationManagerPrivat
 
 typedef struct _GeditCollaborationSubscription		GeditCollaborationSubscription;
 
-struct _GeditCollaborationManager {
+struct _GeditCollaborationManager
+{
 	GObject parent;
 
 	GeditCollaborationManagerPrivate *priv;
 };
 
-struct _GeditCollaborationManagerClass {
+struct _GeditCollaborationManagerClass
+{
 	GObjectClass parent_class;
 };
 
 GType gedit_collaboration_manager_get_type (void) G_GNUC_CONST;
-GType gedit_collaboration_manager_register_type (GTypeModule *type_module);
+void _gedit_collaboration_manager_register_type (GTypeModule *type_module);
 
 GeditCollaborationManager *gedit_collaboration_manager_new (GeditWindow *window);
 

@@ -19,18 +19,20 @@ typedef struct _GeditCollaborationDocumentMessage		GeditCollaborationDocumentMes
 typedef struct _GeditCollaborationDocumentMessageClass		GeditCollaborationDocumentMessageClass;
 typedef struct _GeditCollaborationDocumentMessagePrivate	GeditCollaborationDocumentMessagePrivate;
 
-struct _GeditCollaborationDocumentMessage {
+struct _GeditCollaborationDocumentMessage
+{
 	GtkInfoBar parent;
 
 	GeditCollaborationDocumentMessagePrivate *priv;
 };
 
-struct _GeditCollaborationDocumentMessageClass {
+struct _GeditCollaborationDocumentMessageClass
+{
 	GtkInfoBarClass parent_class;
 };
 
 GType gedit_collaboration_document_message_get_type (void) G_GNUC_CONST;
-GType gedit_collaboration_document_message_register_type (GTypeModule *type_module);
+void _gedit_collaboration_document_message_register_type (GTypeModule *type_module);
 
 GQuark gedit_collaboration_document_message_error_quark (void);
 

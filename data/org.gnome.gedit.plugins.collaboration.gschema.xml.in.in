@@ -1,0 +1,18 @@
+<schemalist>
+  <schema gettext-domain="@GETTEXT_PACKAGE@" id="org.gnome.gedit.plugins.collaboration" path="/apps/gedit/plugins/collaboration/">
+    <child schema="org.gnome.gedit.plugins.collaboration.user" name="user"/>
+  </schema>
+
+  <schema gettext-domain="@GETTEXT_PACKAGE@" id="org.gnome.gedit.plugins.collaboration.user" path="/apps/gedit-plugins/collaboration/user/">
+    <key name="name" type="s">
+      <default>""</default>
+      <_summary>Default User Name</_summary>
+      <_description>The default user name for collaboration</_description>
+    </key>
+    <key name="hue" type="d">
+      <default>-1</default>
+      <_summary>Default User Hue</_summary>
+      <_description>The default user hue part of the color to identify the user by.</_description>
+    </key>
+  </schema>
+</schemalist>

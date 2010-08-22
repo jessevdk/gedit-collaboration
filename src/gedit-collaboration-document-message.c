@@ -1,7 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
 #include "gedit-collaboration-document-message.h"
-#include <gedit/gedit-plugin.h>
 #include "gedit-collaboration.h"
 #include <config.h>
 #include <glib/gi18n-lib.h>
@@ -16,7 +15,9 @@ struct _GeditCollaborationDocumentMessagePrivate
 	GtkWidget *progress;
 };
 
-GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationDocumentMessage, gedit_collaboration_document_message, GTK_TYPE_INFO_BAR)
+G_DEFINE_DYNAMIC_TYPE (GeditCollaborationDocumentMessage,
+                       gedit_collaboration_document_message,
+                       GTK_TYPE_INFO_BAR)
 
 static void
 gedit_collaboration_document_message_finalize (GObject *object)
@@ -60,7 +61,7 @@ set_message_area_text_and_icon (GeditCollaborationDocumentMessage *message_area,
 	gtk_label_set_use_markup (GTK_LABEL (primary_label), TRUE);
 	gtk_label_set_line_wrap (GTK_LABEL (primary_label), TRUE);
 	gtk_misc_set_alignment (GTK_MISC (primary_label), 0, 0.5);
-	GTK_WIDGET_SET_FLAGS (primary_label, GTK_CAN_FOCUS);
+	gtk_widget_set_can_focus (primary_label, TRUE);
 	gtk_label_set_selectable (GTK_LABEL (primary_label), TRUE);
 
 	if (secondary_text != NULL)
@@ -73,7 +74,7 @@ set_message_area_text_and_icon (GeditCollaborationDocumentMessage *message_area,
 		secondary_label = gtk_label_new (secondary_markup);
 		g_free (secondary_markup);
 		gtk_box_pack_start (GTK_BOX (vbox), secondary_label, TRUE, TRUE, 0);
-		GTK_WIDGET_SET_FLAGS (secondary_label, GTK_CAN_FOCUS);
+		gtk_widget_set_can_focus (secondary_label, TRUE);
 		gtk_label_set_use_markup (GTK_LABEL (secondary_label), TRUE);
 		gtk_label_set_line_wrap (GTK_LABEL (secondary_label), TRUE);
 		gtk_label_set_selectable (GTK_LABEL (secondary_label), TRUE);
@@ -103,6 +104,11 @@ gedit_collaboration_document_message_class_init (GeditCollaborationDocumentMessa
 	object_class->finalize = gedit_collaboration_document_message_finalize;
 
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationDocumentMessagePrivate));
+}
+
+static void
+gedit_collaboration_document_message_class_finalize (GeditCollaborationDocumentMessageClass *klass)
+{
 }
 
 static void
@@ -231,4 +237,10 @@ gedit_collaboration_document_message_update (GeditCollaborationDocumentMessage *
 
 	gtk_progress_bar_set_fraction (GTK_PROGRESS_BAR (document_message->priv->progress),
 	                               fraction);
+}
+
+void
+_gedit_collaboration_document_message_register_type (GTypeModule *type_module)
+{
+	gedit_collaboration_document_message_register_type (type_module);
 }

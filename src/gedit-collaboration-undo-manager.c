@@ -2,11 +2,10 @@
 
 #include "gedit-collaboration-undo-manager.h"
 
-#include <gedit/gedit-plugin.h>
-
 #include <libinftextgtk/inf-text-gtk-buffer.h>
 #include <libinfinity/adopted/inf-adopted-undo-grouping.h>
 #include <libinftext/inf-text-undo-grouping.h>
+#include <gtksourceview/gtksourceundomanager.h>
 
 #define GEDIT_COLLABORATION_UNDO_MANAGER_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GEDIT_COLLABORATION_TYPE_UNDO_MANAGER, GeditCollaborationUndoManagerPrivate))
 
@@ -40,10 +39,12 @@ enum
 
 static void gedit_collaboration_undo_manager_iface_init (GtkSourceUndoManagerIface *iface);
 
-GEDIT_PLUGIN_DEFINE_TYPE_WITH_CODE (GeditCollaborationUndoManager, gedit_collaboration_undo_manager, G_TYPE_OBJECT,
-                                    GEDIT_PLUGIN_IMPLEMENT_INTERFACE (gedit_collaboration_undo_manager,
-                                                                      GTK_TYPE_SOURCE_UNDO_MANAGER,
-                                                                      gedit_collaboration_undo_manager_iface_init))
+G_DEFINE_DYNAMIC_TYPE_EXTENDED (GeditCollaborationUndoManager,
+                                gedit_collaboration_undo_manager,
+                                G_TYPE_OBJECT,
+                                0,
+                                G_IMPLEMENT_INTERFACE_DYNAMIC (GTK_TYPE_SOURCE_UNDO_MANAGER,
+                                                               gedit_collaboration_undo_manager_iface_init))
 
 static void
 gedit_collaboration_undo_manager_finalize (GObject *object)
@@ -326,6 +327,11 @@ gedit_collaboration_undo_manager_class_init (GeditCollaborationUndoManagerClass 
 }
 
 static void
+gedit_collaboration_undo_manager_class_finalize (GeditCollaborationUndoManagerClass *klass)
+{
+}
+
+static void
 gedit_collaboration_undo_manager_init (GeditCollaborationUndoManager *self)
 {
 	self->priv = GEDIT_COLLABORATION_UNDO_MANAGER_GET_PRIVATE (self);
@@ -397,4 +403,10 @@ gedit_collaboration_undo_manager_iface_init (GtkSourceUndoManagerIface *iface)
 
 	iface->undo = undo_manager_undo_impl;
 	iface->redo = undo_manager_redo_impl;
+}
+
+void
+_gedit_collaboration_undo_manager_register_type (GTypeModule *type_module)
+{
+	gedit_collaboration_undo_manager_register_type (type_module);
 }

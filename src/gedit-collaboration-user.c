@@ -3,15 +3,14 @@
 #include "gedit-collaboration-user.h"
 #include "gedit-collaboration.h"
 
-#include <gconf/gconf-client.h>
 #include <string.h>
 #include <math.h>
 #include <stdlib.h>
 
 #define GEDIT_COLLABORATION_USER_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GEDIT_COLLABORATION_TYPE_USER, GeditCollaborationUserPrivate))
 
-#define DEFAULT_USER_BASE_KEY "/apps/gedit-2/plugins/collaboration/user"
-#define GCONF_CLIENT_DATA_KEY "GeditCollaborationUserGconfClientKey"
+#define COLLABORATION_USER_SETTINGS "org.gnome.gedit.plugins.collaboration.user"
+#define SETTINGS_DATA_KEY "GeditCollaborationUserSettingsKey"
 
 static GeditCollaborationUser *default_user = NULL;
 
@@ -52,6 +51,14 @@ gedit_collaboration_user_finalize (GObject *object)
 	g_free (self->priv->name);
 
 	G_OBJECT_CLASS (gedit_collaboration_user_parent_class)->finalize (object);
+}
+
+static gdouble
+random_hue ()
+{
+	/* Generate random hue */
+	srand (time (0));
+	return random () / (gdouble)RAND_MAX;
 }
 
 static void
@@ -248,6 +255,7 @@ gedit_collaboration_user_set_hue (GeditCollaborationUser *user,
                                   gdouble                 hue)
 {
 	g_return_if_fail (GEDIT_COLLABORATION_IS_USER (user));
+	g_return_if_fail (hue >= 0 && hue <= 1);
 
 	if (fabs (user->priv->hue - hue) > 1e-7)
 	{
@@ -255,163 +263,70 @@ gedit_collaboration_user_set_hue (GeditCollaborationUser *user,
 	}
 }
 
-static void
-on_default_user_notify_hue (GeditCollaborationUser *user)
+gboolean
+name_get_mapping (GValue   *value,
+                  GVariant *variant,
+                  gpointer  user_data)
 {
-	GConfClient *client = g_object_get_data (G_OBJECT (user),
-	                                         GCONF_CLIENT_DATA_KEY);
+	gchar *name;
+	gsize length;
 
-	gconf_client_set_float (client,
-	                        DEFAULT_USER_BASE_KEY "/hue",
-	                        user->priv->hue,
-	                        NULL);
-}
+	name = g_variant_dup_string (variant, &length);
 
-static void
-on_default_user_notify_name (GeditCollaborationUser *user)
-{
-	GConfClient *client = g_object_get_data (G_OBJECT (user),
-	                                         GCONF_CLIENT_DATA_KEY);
-
-	gconf_client_set_string (client,
-	                         DEFAULT_USER_BASE_KEY "/name",
-	                         user->priv->name,
-	                         NULL);
-}
-
-static void
-on_default_user_client_notify (GConfClient *client,
-                               guint        cnxnid,
-                               GConfEntry  *entry)
-{
-	const gchar *key;
-	GConfValue *value;
-
-	key = gconf_entry_get_key (entry);
-	value = gconf_entry_get_value (entry);
-
-	if (value == NULL)
+	if (!name || !*name)
 	{
-		return;
+		g_free (name);
+		name = g_strdup (g_get_user_name ());
 	}
 
-	if (strcmp (entry->key, DEFAULT_USER_BASE_KEY "/name") == 0)
-	{
-		gedit_collaboration_user_set_name (default_user,
-		                                   gconf_value_get_string (value));
-	}
-	else if (strcmp (entry->key, DEFAULT_USER_BASE_KEY "/hue") == 0)
-	{
-		gdouble val = gconf_value_get_float (value);
-		gboolean isrand = FALSE;
-
-		if (val < 0)
-		{
-			srand (time (0));
-			val = random() / (gdouble)RAND_MAX;
-
-			isrand = TRUE;
-		}
-
-		gedit_collaboration_user_set_hue (default_user,
-		                                  val);
-
-		if (isrand)
-		{
-			gconf_client_set_float (client,
-			                        DEFAULT_USER_BASE_KEY "/hue",
-			                        val,
-			                        NULL);
-		}
-	}
+	g_value_take_string (value, name);
+	return TRUE;
 }
 
 GeditCollaborationUser *
 gedit_collaboration_user_get_default ()
 {
-	if (default_user == NULL)
+	gdouble hue = -1;
+	GSettings *user_settings;
+
+	if (default_user != NULL)
 	{
-		GConfClient *client = gconf_client_get_default ();
-		gdouble hue = -1;
-		gchar *name = NULL;
-		GConfValue *value;
-		gboolean israndom = FALSE;
-
-		value = gconf_client_get (client,
-		                          DEFAULT_USER_BASE_KEY "/hue",
-		                          NULL);
-
-		if (value != NULL)
-		{
-			hue = gconf_value_get_float (value);
-			gconf_value_free (value);
-		}
-
-		if (hue < 0)
-		{
-			/* Generate random hue */
-			israndom = TRUE;
-			srand (time (0));
-
-			hue = random () / (double)RAND_MAX;
-		}
-
-		value = gconf_client_get (client,
-		                          DEFAULT_USER_BASE_KEY "/name",
-		                          NULL);
-
-		if (value != NULL)
-		{
-			name = g_strdup (gconf_value_get_string (value));
-			gconf_value_free (value);
-		}
-
-		if (!name || !*name)
-		{
-			g_free (name);
-			name = g_strdup (g_get_user_name ());
-		}
-
-		default_user = gedit_collaboration_user_new (name);
-		gedit_collaboration_user_set_hue (default_user, hue);
-		g_free (name);
-
-		g_object_set_data_full (G_OBJECT (default_user),
-		                        GCONF_CLIENT_DATA_KEY,
-		                        client,
-		                        (GDestroyNotify)g_object_unref);
-
-		/* Make sure to save hue to gconf if it was randomly initialized */
-		if (israndom)
-		{
-			on_default_user_notify_hue (default_user);
-		}
-
-		gconf_client_add_dir (client,
-		                      DEFAULT_USER_BASE_KEY,
-		                      GCONF_CLIENT_PRELOAD_ONELEVEL,
-		                      NULL);
-
-		gconf_client_notify_add (client,
-		                         DEFAULT_USER_BASE_KEY,
-		                         (GConfClientNotifyFunc)on_default_user_client_notify,
-		                         NULL,
-		                         NULL,
-		                         NULL);
-
-		g_signal_connect (default_user,
-		                  "notify::hue",
-		                  G_CALLBACK (on_default_user_notify_hue),
-		                  NULL);
-
-		g_signal_connect (default_user,
-		                  "notify::name",
-		                  G_CALLBACK (on_default_user_notify_name),
-		                  NULL);
-
-		g_object_add_weak_pointer (G_OBJECT (default_user),
-		                           (gpointer *)&default_user);
+		return default_user;
 	}
+
+	user_settings = g_settings_new (COLLABORATION_USER_SETTINGS);
+	hue = g_settings_get_double (user_settings, "hue");
+
+	if (hue < 0)
+	{
+		g_settings_set_double (user_settings, "hue", random_hue ());
+	}
+
+	default_user = gedit_collaboration_user_new (NULL);
+
+	g_object_set_data_full (G_OBJECT (default_user),
+	                        SETTINGS_DATA_KEY,
+	                        user_settings,
+	                        (GDestroyNotify)g_object_unref);
+
+	g_settings_bind_with_mapping (user_settings,
+	                              "name",
+	                              default_user,
+	                              "name",
+	                              G_SETTINGS_BIND_DEFAULT,
+	                              name_get_mapping,
+	                              NULL,
+	                              NULL,
+	                              NULL);
+
+	g_settings_bind (user_settings,
+	                 "hue",
+	                 default_user,
+	                 "hue",
+	                 G_SETTINGS_BIND_DEFAULT);
+
+	g_object_add_weak_pointer (G_OBJECT (default_user),
+	                           (gpointer *)&default_user);
 
 	return default_user;
 }

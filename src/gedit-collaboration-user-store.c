@@ -1,7 +1,6 @@
 /* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*- */
 
 #include "gedit-collaboration-user-store.h"
-#include <gedit/gedit-plugin.h>
 
 #define GEDIT_COLLABORATION_USER_STORE_GET_PRIVATE(object)(G_TYPE_INSTANCE_GET_PRIVATE((object), GEDIT_COLLABORATION_TYPE_USER_STORE, GeditCollaborationUserStorePrivate))
 
@@ -21,7 +20,9 @@ enum
 static void remove_user (GeditCollaborationUserStore *store, InfUser *user, gboolean disconnect_status);
 static void add_user (GeditCollaborationUserStore *store, InfUser *user);
 
-GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationUserStore, gedit_collaboration_user_store, GTK_TYPE_LIST_STORE)
+G_DEFINE_DYNAMIC_TYPE (GeditCollaborationUserStore,
+                       gedit_collaboration_user_store,
+                       GTK_TYPE_LIST_STORE)
 
 static void
 gedit_collaboration_user_store_finalize (GObject *object)
@@ -334,6 +335,11 @@ gedit_collaboration_user_store_class_init (GeditCollaborationUserStoreClass *kla
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationUserStorePrivate));
 }
 
+static void
+gedit_collaboration_user_store_class_finalize (GeditCollaborationUserStoreClass *klass)
+{
+}
+
 static gint
 iter_compare_func (GtkTreeModel *model,
                    GtkTreeIter  *a,
@@ -417,4 +423,10 @@ gedit_collaboration_user_store_get_user (GeditCollaborationUserStore *store,
 	                    -1);
 
 	return user;
+}
+
+void
+_gedit_collaboration_user_store_register_type (GTypeModule *type_module)
+{
+	gedit_collaboration_user_store_register_type (type_module);
 }

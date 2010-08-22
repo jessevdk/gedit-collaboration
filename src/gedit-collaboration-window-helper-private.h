@@ -5,7 +5,7 @@
 
 #include <config.h>
 #include <glib/gi18n-lib.h>
-#include <gedit/gedit-plugin.h>
+#include <gedit/gedit-window.h>
 
 #include <libinfgtk/inf-gtk-browser-view.h>
 #include <libinfgtk/inf-gtk-browser-store.h>

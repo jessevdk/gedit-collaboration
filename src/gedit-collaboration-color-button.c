@@ -3,7 +3,6 @@
 #include "gedit-collaboration-color-button.h"
 
 #include <config.h>
-#include <gedit/gedit-plugin.h>
 #include <libinftextgtk/inf-text-gtk-hue-chooser.h>
 #include <glib/gi18n-lib.h>
 #include "gedit-collaboration.h"
@@ -14,17 +13,22 @@ struct _GeditCollaborationColorButtonPrivate
 {
 	GtkWidget *color_dialog;
 	GtkWidget *hue_chooser;
+
 	gboolean modal;
+	gdouble hue;
 };
 
 /* Properties */
 enum
 {
 	PROP_0,
-	PROP_MODAL
+	PROP_MODAL,
+	PROP_HUE
 };
 
-GEDIT_PLUGIN_DEFINE_TYPE (GeditCollaborationColorButton, gedit_collaboration_color_button, GTK_TYPE_COLOR_BUTTON)
+G_DEFINE_DYNAMIC_TYPE (GeditCollaborationColorButton,
+                       gedit_collaboration_color_button,
+                       GTK_TYPE_COLOR_BUTTON)
 
 static void
 gedit_collaboration_color_button_finalize (GObject *object)
@@ -99,7 +103,22 @@ color_button_clicked (GtkButton *button)
 }
 
 static void
-gedit_collaboration_color_button_set_property (GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
+set_hue (GeditCollaborationColorButton *button,
+         gdouble                        hue)
+{
+	GdkColor color;
+
+	button->priv->hue = hue;
+
+	gedit_collaboration_hue_to_color (hue, &color);
+	gtk_color_button_set_color (GTK_COLOR_BUTTON (button), &color);
+}
+
+static void
+gedit_collaboration_color_button_set_property (GObject      *object,
+                                               guint         prop_id,
+                                               const GValue *value,
+                                               GParamSpec   *pspec)
 {
 	GeditCollaborationColorButton *self = GEDIT_COLLABORATION_COLOR_BUTTON (object);
 
@@ -114,6 +133,9 @@ gedit_collaboration_color_button_set_property (GObject *object, guint prop_id, c
 				                      self->priv->modal);
 			}
 		break;
+		case PROP_HUE:
+			set_hue (self, g_value_get_double (value));
+		break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
 		break;
@@ -121,7 +143,10 @@ gedit_collaboration_color_button_set_property (GObject *object, guint prop_id, c
 }
 
 static void
-gedit_collaboration_color_button_get_property (GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
+gedit_collaboration_color_button_get_property (GObject    *object,
+                                               guint       prop_id,
+                                               GValue     *value,
+                                               GParamSpec *pspec)
 {
 	GeditCollaborationColorButton *self = GEDIT_COLLABORATION_COLOR_BUTTON (object);
 
@@ -129,6 +154,9 @@ gedit_collaboration_color_button_get_property (GObject *object, guint prop_id, G
 	{
 		case PROP_MODAL:
 			g_value_set_boolean (value, self->priv->modal);
+		break;
+		case PROP_HUE:
+			g_value_set_double (value, self->priv->hue);
 		break;
 		default:
 			G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
@@ -157,6 +185,22 @@ gedit_collaboration_color_button_class_init (GeditCollaborationColorButtonClass 
 	                                                       G_PARAM_READWRITE | G_PARAM_CONSTRUCT));
 
 	g_type_class_add_private (object_class, sizeof(GeditCollaborationColorButtonPrivate));
+
+
+	g_object_class_install_property (object_class,
+	                                 PROP_HUE,
+	                                 g_param_spec_double ("hue",
+	                                                      "Hue",
+	                                                      "Hue",
+	                                                      0.0,
+	                                                      1.0,
+	                                                      0.0,
+	                                                      G_PARAM_READWRITE));
+}
+
+static void
+gedit_collaboration_color_button_class_finalize (GeditCollaborationColorButtonClass *klass)
+{
 }
 
 static void
@@ -175,23 +219,23 @@ void
 gedit_collaboration_color_button_set_hue (GeditCollaborationColorButton *button,
                                           gdouble                        hue)
 {
-	GdkColor color;
 
 	g_return_if_fail (GEDIT_COLLABORATION_IS_COLOR_BUTTON (button));
 
-	gedit_collaboration_hue_to_color (hue, &color);
-	gtk_color_button_set_color (GTK_COLOR_BUTTON (button), &color);
+	set_hue (button, hue);
+	g_object_notify (G_OBJECT (button), "hue");
 }
 
 gdouble
 gedit_collaboration_color_button_get_hue (GeditCollaborationColorButton *button)
 {
-	GdkColor color;
-
 	g_return_val_if_fail (GEDIT_COLLABORATION_IS_COLOR_BUTTON (button), 0.0);
 
-	gtk_color_button_get_color (GTK_COLOR_BUTTON (button),
-	                            &color);
+	return button->priv->hue;
+}
 
-	return gedit_collaboration_color_to_hue (&color);
+void
+_gedit_collaboration_color_button_register_type (GTypeModule *type_module)
+{
+	gedit_collaboration_color_button_register_type (type_module);
 }

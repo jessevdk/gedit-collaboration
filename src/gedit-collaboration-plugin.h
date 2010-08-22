@@ -3,7 +3,8 @@
 #ifndef __GEDIT_COLLABORATION_PLUGIN_H__
 #define __GEDIT_COLLABORATION_PLUGIN_H__
 
-#include <gedit/gedit-plugin.h>
+#include <libpeas/peas-extension-base.h>
+#include <libpeas/peas-object-module.h>
 
 G_BEGIN_DECLS
 
@@ -15,23 +16,25 @@ G_BEGIN_DECLS
 #define GEDIT_IS_COLLABORATION_PLUGIN_CLASS(klass)		(G_TYPE_CHECK_CLASS_TYPE ((klass), GEDIT_TYPE_COLLABORATION_PLUGIN))
 #define GEDIT_COLLABORATION_PLUGIN_GET_CLASS(obj)		(G_TYPE_INSTANCE_GET_CLASS ((obj), GEDIT_TYPE_COLLABORATION_PLUGIN, GeditCollaborationPluginClass))
 
-typedef struct _GeditCollaborationPlugin		GeditCollaborationPlugin;
+typedef struct _GeditCollaborationPlugin	GeditCollaborationPlugin;
 typedef struct _GeditCollaborationPluginClass	GeditCollaborationPluginClass;
 typedef struct _GeditCollaborationPluginPrivate	GeditCollaborationPluginPrivate;
 
-struct _GeditCollaborationPlugin {
-	GeditPlugin parent;
+struct _GeditCollaborationPlugin
+{
+	PeasExtensionBase parent;
 
 	GeditCollaborationPluginPrivate *priv;
 };
 
-struct _GeditCollaborationPluginClass {
-	GeditPluginClass parent_class;
+struct _GeditCollaborationPluginClass
+{
+	PeasExtensionBaseClass parent_class;
 };
 
 GType gedit_collaboration_plugin_get_type (void) G_GNUC_CONST;
 
-G_MODULE_EXPORT GType gedit_register_plugin (GTypeModule *module);
+G_MODULE_EXPORT void peas_register_types (PeasObjectModule *module);
 
 G_END_DECLS
 
