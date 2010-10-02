@@ -118,11 +118,10 @@ set_source_color_from_hue (GeditCollaborationHueRenderer *renderer,
 
 static void
 gedit_collaboration_hue_renderer_render (GtkCellRenderer      *cell,
-                                         GdkDrawable          *window,
+                                         cairo_t              *ctx,
                                          GtkWidget            *widget,
-                                         GdkRectangle         *background_area,
-                                         GdkRectangle         *cell_area,
-                                         GdkRectangle         *expose_area,
+                                         GdkRectangle const   *background_area,
+                                         GdkRectangle const   *cell_area,
                                          GtkCellRendererState  flags)
 {
 	gdouble xpad;
@@ -139,11 +138,6 @@ gedit_collaboration_hue_renderer_render (GtkCellRenderer      *cell,
 
 	/* Draw a nice little rectangle with the current hue in the
 	   cell_area */
-	cairo_t *ctx = gdk_cairo_create (window);
-
-	gdk_cairo_rectangle (ctx, expose_area);
-	cairo_clip (ctx);
-
 	x = cell_area->x + xpad + 0.5;
 	y = cell_area->y + ypad + 0.5;
 
@@ -164,8 +158,6 @@ gedit_collaboration_hue_renderer_render (GtkCellRenderer      *cell,
 
 	gdk_cairo_set_source_color (ctx, &style->fg[gtk_widget_get_state (widget)]);
 	cairo_stroke (ctx);
-
-	cairo_destroy (ctx);
 }
 
 static void
