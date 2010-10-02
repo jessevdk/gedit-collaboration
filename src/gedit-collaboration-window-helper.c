@@ -38,10 +38,32 @@ G_DEFINE_DYNAMIC_TYPE_EXTENDED (GeditCollaborationWindowHelper,
                                 G_IMPLEMENT_INTERFACE_DYNAMIC (GEDIT_TYPE_WINDOW_ACTIVATABLE,
                                                                gedit_window_activatable_iface_init))
 
+void
+gedit_collaboration_window_helper_update_state (GeditWindowActivatable *activatable)
+{
+	GeditTab *tab;
+	gboolean sensitive;
+	GtkAction *action;
+	GeditCollaborationWindowHelper *helper;
+
+	helper = GEDIT_COLLABORATION_WINDOW_HELPER (activatable);
+
+	tab = gedit_window_get_active_tab (helper->priv->window);
+
+	sensitive = tab != NULL &&
+	            gedit_collaboration_manager_tab_get_subscription (helper->priv->manager,
+	                                                              tab) != NULL;
+
+	action = gtk_action_group_get_action (helper->priv->action_group,
+	                                      "CollaborationClearColorsAction");
+
+	gtk_action_set_sensitive (action, sensitive);
+}
+
 static void
 gedit_window_activatable_iface_init (GeditWindowActivatableInterface *iface)
 {
-	/* TODO */
+	iface->update_state = gedit_collaboration_window_helper_update_state;
 }
 
 static GdkPixbuf *
@@ -151,10 +173,10 @@ user_name_data_func (GtkTreeViewColumn              *tree_column,
 }
 
 static void
-build_user_view (GeditCollaborationWindowHelper *helper,
-		 GtkWidget                     **tree_view,
-		 GtkWidget                     **scrolled_window,
-		 gboolean                        show_colors)
+build_user_view (GeditCollaborationWindowHelper  *helper,
+                 GtkWidget                      **tree_view,
+                 GtkWidget                      **scrolled_window,
+                 gboolean                         show_colors)
 {
 	GtkTreeViewColumn *column;
 	GtkCellRenderer *renderer;
@@ -1638,27 +1660,6 @@ static void
 gedit_collaboration_window_helper_init (GeditCollaborationWindowHelper *self)
 {
 	self->priv = GEDIT_COLLABORATION_WINDOW_HELPER_GET_PRIVATE (self);
-}
-
-void
-gedit_collaboration_window_helper_update_ui (GeditCollaborationWindowHelper *helper)
-{
-	GeditTab *tab;
-	gboolean sensitive;
-	GtkAction *action;
-
-	g_return_if_fail (GEDIT_IS_COLLABORATION_WINDOW_HELPER (helper));
-
-	tab = gedit_window_get_active_tab (helper->priv->window);
-
-	sensitive = tab != NULL &&
-	            gedit_collaboration_manager_tab_get_subscription (helper->priv->manager,
-	                                                              tab) != NULL;
-
-	action = gtk_action_group_get_action (helper->priv->action_group,
-	                                      "CollaborationClearColorsAction");
-
-	gtk_action_set_sensitive (action, sensitive);
 }
 
 void

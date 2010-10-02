@@ -23,6 +23,7 @@
  */
 
 #include <gedit/gedit-app-activatable.h>
+#include <gedit/gedit-window-activatable.h>
 #include <libpeas-gtk/peas-gtk-configurable.h>
 #include <gedit/gedit-app.h>
 
@@ -290,4 +291,8 @@ peas_register_types (PeasObjectModule *module)
 	peas_object_module_register_extension_type (module,
 	                                            PEAS_GTK_TYPE_CONFIGURABLE,
 	                                            GEDIT_TYPE_COLLABORATION_PLUGIN);
+
+	peas_object_module_register_extension_type (module,
+	                                            GEDIT_TYPE_WINDOW_ACTIVATABLE,
+	                                            GEDIT_TYPE_COLLABORATION_WINDOW_HELPER);
 }
