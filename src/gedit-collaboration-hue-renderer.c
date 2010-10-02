@@ -124,15 +124,15 @@ gedit_collaboration_hue_renderer_render (GtkCellRenderer      *cell,
                                          GdkRectangle const   *cell_area,
                                          GtkCellRendererState  flags)
 {
-	gdouble xpad;
-	gdouble ypad;
+	gint xpad;
+	gint ypad;
 	GtkStyle *style;
 	gdouble x;
 	gdouble y;
 	gdouble height;
 	gdouble width;
 
-	g_object_get (cell, "xpad", &xpad, "ypad", &ypad, NULL);
+	gtk_cell_renderer_get_padding (cell, &xpad, &ypad);
 
 	style = gtk_widget_get_style (widget);
 
