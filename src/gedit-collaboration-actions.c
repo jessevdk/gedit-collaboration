@@ -121,7 +121,6 @@ item_new_dialog (GeditCollaborationWindowHelper *helper,
 	gtk_entry_set_activates_default (GTK_ENTRY (entry), TRUE);
 
 	gtk_container_set_border_width (GTK_CONTAINER (dialog), 5);
-	gtk_dialog_set_has_separator (GTK_DIALOG (dialog), FALSE);
 	gtk_dialog_set_default_response (GTK_DIALOG (dialog), GTK_RESPONSE_OK);
 
 	gtk_label_set_mnemonic_widget (GTK_LABEL (label), entry);

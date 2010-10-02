@@ -70,7 +70,7 @@ color_button_clicked (GtkButton *button)
 		self->priv->color_dialog =
 			gtk_dialog_new_with_buttons (_("Select User Color"),
 			                             GTK_WINDOW (gtk_widget_get_toplevel (GTK_WIDGET (button))),
-			                             GTK_DIALOG_DESTROY_WITH_PARENT | GTK_DIALOG_NO_SEPARATOR,
+			                             GTK_DIALOG_DESTROY_WITH_PARENT,
 			                             GTK_STOCK_CANCEL,
 			                             GTK_RESPONSE_CANCEL,
 			                             GTK_STOCK_OK,
