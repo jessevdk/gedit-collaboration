@@ -4,8 +4,9 @@
 #define __GEDIT_COLLABORATION_H__
 
 #include <gtk/gtk.h>
+#include <libinfinity/common/inf-protocol.h>
 
-#define DEFAULT_INFINOTE_PORT 6523
+#define DEFAULT_INFINOTE_PORT (inf_protocol_get_default_port ())
 
 G_BEGIN_DECLS
 
