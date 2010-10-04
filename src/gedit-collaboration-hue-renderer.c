@@ -65,13 +65,13 @@ gedit_collaboration_hue_renderer_get_property (GObject    *object,
 }
 
 static void
-gedit_collaboration_hue_renderer_get_size (GtkCellRenderer *cell,
-                                           GtkWidget       *widget,
-                                           GdkRectangle    *cell_area,
-                                           gint            *x_offset,
-                                           gint            *y_offset,
-                                           gint            *width,
-                                           gint            *height)
+gedit_collaboration_hue_renderer_get_size (GtkCellRenderer    *cell,
+                                           GtkWidget          *widget,
+                                           GdkRectangle const *cell_area,
+                                           gint               *x_offset,
+                                           gint               *y_offset,
+                                           gint               *width,
+                                           gint               *height)
 {
 	gtk_icon_size_lookup_for_settings (gtk_widget_get_settings (widget),
 	                                   GTK_ICON_SIZE_MENU,
