@@ -97,7 +97,7 @@ AC_CONFIG_FILES([
 Makefile
 data/Makefile
 src/Makefile
-src/collaboration.gedit-plugin.desktop.in
+src/collaboration.plugin.desktop.in
 po/Makefile.in
 data/org.gnome.gedit.plugins.collaboration.gschema.xml.in
 ])
