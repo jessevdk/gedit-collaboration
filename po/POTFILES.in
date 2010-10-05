@@ -1,0 +1,13 @@
+data/gedit-collaboration.schemas.in
+data/org.gnome.gedit.plugins.collaboration.gschema.xml.in.in
+src/collaboration.plugin.desktop.in.in
+src/gedit-collaboration-actions.c
+src/gedit-collaboration-bookmark-dialog.c
+src/gedit-collaboration-bookmark-dialog.ui
+src/gedit-collaboration-color-button.c
+src/gedit-collaboration-configuration.ui
+src/gedit-collaboration-document-message.c
+src/gedit-collaboration-manager.c
+src/gedit-collaboration-password-dialog.ui
+src/gedit-collaboration-window-helper.c
+src/gedit-collaboration-window-helper.ui
