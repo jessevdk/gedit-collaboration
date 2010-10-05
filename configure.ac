@@ -54,7 +54,7 @@ dnl ================================================================
 dnl Start of pkg-config checks
 dnl ================================================================
 GEDIT_REQUIRED_VERSION=2.90
-INFINITY_REQUIRED_VERSION=0.4.1
+INFINITY_REQUIRED_VERSION=0.5
 
 PKG_CHECK_MODULES(GEDIT, [
 	gedit >= $GEDIT_REQUIRED_VERSION,
